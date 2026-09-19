@@ -1,10 +1,19 @@
 """Data Engineering Transformation Nodes for MIMIC-IV Clinical Flow.
 
 Senior Staff Healthcare DataOps & Analytics Engineering
-Implements clean Medallion transformations:
-- Bronze (01_raw) -> Silver (02_intermediate): Cleansing, validation, timestamp parsing.
-- Silver -> Gold (03_primary): Longitudinal patient flow and transfer trajectory modeling.
-- Gold -> Platinum (04_feature): Bed occupancy surge capacity & turnover buffer metrics.
+Implements Medallion transformations:
+- Bronze (01_raw) -> Silver (02_intermediate):
+    - Automated engine detection (PySpark with vectorized Pandas/PyArrow fallback)
+    - HIPAA Safe Harbor de-identification (SHA-256 cryptographic hashing)
+    - ISO 8601 UTC timestamp standardization
+    - Clinical hygiene & chronological integrity checks
+- Silver -> Gold (03_primary):
+    - Longitudinal patient flow & transfer trajectories
+    - Window partitioning over hadm_id ordered by intime
+    - Transfer sequence numbering, care unit stay hours, and transition lag
+    - ICU stay classification & emergency admission indicators
+- Gold -> Platinum/Feature (04_feature):
+    - Bed occupancy surge capacity & turnover buffer modeling
 """
 
 from __future__ import annotations
@@ -14,42 +23,14 @@ import importlib
 import logging
 from pathlib import Path
 from typing import Any, Tuple, Union
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 logger = logging.getLogger("DataOps.Nodes")
 
 DEFAULT_SALT = "clinical_flow_phi_salt_2026"
 ICU_CAREUNIT_TOKENS = ("MICU", "SICU", "CCU", "TSICU", "CVICU", "ICU")
-
-
-def hash_identifier(identifier: Any, salt: str = DEFAULT_SALT) -> str | None:
-    """Apply SHA-256 one-way cryptographic hashing to patient identifiers.
-
-    Guarantees HIPAA Safe Harbor de-identification while maintaining referential
-    integrity across all clinical domain tables.
-
-    Args:
-        identifier: Raw patient/admission identifier (int, float, or string).
-        salt: Cryptographic salt string preventing rainbow table attacks.
-
-    Returns:
-        Hexadecimal 64-character SHA-256 string, or None if value is null/empty.
-    """
-    if pd.isna(identifier) or identifier is None:
-        return None
-    val_str = str(identifier).strip()
-    if val_str == "" or val_str.lower() in ("nan", "none", "null"):
-        return None
-
-    try:
-        val_int = int(float(val_str))
-        token = f"{salt}:{val_int}"
-    except (ValueError, TypeError):
-        token = f"{salt}:{val_str}"
-
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()
-
 
 
 def get_execution_engine() -> Tuple[str, Any]:
@@ -86,6 +67,34 @@ def get_execution_engine() -> Tuple[str, Any]:
             "[WARN] Java/JVM not detected. Falling back to high-performance vectorized Pandas/PyArrow engine"
         )
         return "pandas", None
+
+
+def hash_identifier(identifier: Any, salt: str = DEFAULT_SALT) -> str | None:
+    """Apply SHA-256 one-way cryptographic hashing to patient identifiers.
+
+    Guarantees HIPAA Safe Harbor de-identification while maintaining referential
+    integrity across all clinical domain tables.
+
+    Args:
+        identifier: Raw patient/admission identifier (int, float, or string).
+        salt: Cryptographic salt string preventing rainbow table attacks.
+
+    Returns:
+        Hexadecimal 64-character SHA-256 string, or None if value is null/empty.
+    """
+    if pd.isna(identifier) or identifier is None:
+        return None
+    val_str = str(identifier).strip()
+    if val_str == "" or val_str.lower() in ("nan", "none", "null"):
+        return None
+
+    try:
+        val_int = int(float(val_str))
+        token = f"{salt}:{val_int}"
+    except (ValueError, TypeError):
+        token = f"{salt}:{val_str}"
+
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def compute_duration_hours(start: Any, end: Any, default: float = 0.0) -> pd.Series:
@@ -143,7 +152,6 @@ def clean_admissions(admissions: pd.DataFrame) -> pd.DataFrame:
     df["in_hospital_mortality"] = df["hospital_expire_flag"].fillna(0).astype(int)
 
     return df
-
 
 
 def clean_transfers(transfers: pd.DataFrame) -> pd.DataFrame:
@@ -433,59 +441,142 @@ def build_patient_flow_trajectories(
     return trajectory
 
 
-create_patient_flow = lambda adm, trf, srv: build_patient_flow_trajectories(adm, trf, srv)
-
-
-
-def compute_bed_surge_metrics(
+def simulate_department_surge_capacity(
     patient_flow: pd.DataFrame,
     surge_multiplier: float = 1.25,
     bed_turnover_lead_hours: int = 4,
+    standard_target_occupancy: float = 0.85,
+    output_parquet_path: Union[str, Path, None] = None,
+    output_csv_path: Union[str, Path, None] = None,
 ) -> pd.DataFrame:
-    """Generate operational bed capacity, surge buffers, and turnover metrics (Feature layer).
+    """Simulate discrete-event bed capacity, surge inflow, and clearance under surge conditions.
 
-    Calculates:
-    - Adjusted bed occupancy hours factoring in turnaround disinfection buffer.
-    - Surge-augmented capacity requirements based on surge multiplier.
-    - Unit-level bed utilization summary.
+    Models:
+    1. Care Unit Metrics:
+       - Groups by curr_careunit (e.g. EMERGENCY DEPARTMENT, MICU, SICU, TRANSPLANT, MED, SURG).
+       - Calculates empirical active bed demand, mean length of stay (LOS_mean in hours),
+         and Little's Law baseline admission rate (lambda_base patients/hour).
+    2. Dynamic Surge & Clearance Modeling:
+       - Simulates admission surge using Poisson-adjusted arrivals over lead window (k = 4h):
+           lambda_surge = lambda_base * surge_multiplier
+           Projected Inflow (4h) = lambda_surge * 4
+       - Models expected clearances over 4h using exponential stay survival distributions:
+           P(discharge within 4h) = 1 - exp(-4 / LOS_mean)
+           Expected Discharges (4h) = Active Patients * P(discharge within 4h)
+    3. Operational Deficit & Risk Classification:
+       - Net Bed Deficit = Projected Inflow (4h) - Expected Discharges (4h)
+       - Projected Bed Occupancy = (Active Beds + Surge Deficit) / Licensed Bed Capacity
+       - Categorical Risk Tiers:
+           * CRITICAL_BOTTLENECK: Projected Occupancy >= 90% or Surge Deficit > 3 beds
+           * STRAINED: Projected Occupancy between 75% and 89%
+           * STABLE: Projected Occupancy < 75%
+    4. Dual-Layer Persistence:
+       - Persists analytical feature mart to data/04_feature/feat_bed_surge_metrics.parquet
+       - Exports executive tabular view to data/04_feature/powerbi_executive_capacity_report.csv
+         (columns: care_unit, active_patients, baseline_hourly_inflow, surge_multiplier,
+          projected_inflow_4h, expected_discharges_4h, surge_deficit,
+          projected_occupancy_pct, operational_risk_tier, governance_alert_flag)
 
     Args:
-        patient_flow: Primary patient flow DataFrame.
-        surge_multiplier: Regulatory or epidemic surge buffer multiplier (e.g., 1.25 for +25%).
-        bed_turnover_lead_hours: Minimum hours reserved for bed cleaning and turnover.
+        patient_flow: Primary patient flow trajectory DataFrame.
+        surge_multiplier: Epidemic / disaster surge buffer multiplier (e.g. 1.25 for +25%).
+        bed_turnover_lead_hours: Turnaround disinfection and intake window in hours.
+        standard_target_occupancy: Baseline operational target occupancy ratio (default 0.85).
+        output_parquet_path: Optional path for feature Parquet mart.
+        output_csv_path: Optional path for Power BI executive report CSV.
 
     Returns:
-        Analytical feature table ready for capacity planning and dashboard consumption.
+        Enriched DataFrame with simulation metrics and operational risk classifications.
     """
     logger.info(
-        "Computing Feature layer with surge_multiplier=%.2f, turnover_buffer=%dh",
+        "Executing Node 3: simulate_department_surge_capacity (surge_mult=%.2f, window=%dh, target_occ=%.2f)",
         surge_multiplier,
         bed_turnover_lead_hours,
+        standard_target_occupancy,
     )
-    df = patient_flow.copy()
+    if patient_flow.empty:
+        logger.warning("Empty patient_flow DataFrame provided to simulate_department_surge_capacity.")
+        return pd.DataFrame()
 
-    # Effective bed reservation = clinical LOS + turnover disinfection buffer
-    df["effective_bed_hours"] = df["los_hours"] + bed_turnover_lead_hours
+    # Filter out UNKNOWN or empty care units for accurate department analytics
+    careunit_col = "curr_careunit" if "curr_careunit" in patient_flow.columns else "careunit"
+    valid_units = patient_flow[
+        patient_flow[careunit_col].notna()
+        & ~patient_flow[careunit_col].isin(["UNKNOWN", "", "NONE"])
+    ].copy()
 
-    # Surge-adjusted bed demand
-    df["surge_capacity_hours"] = df["effective_bed_hours"] * surge_multiplier
+    if valid_units.empty:
+        valid_units = patient_flow.copy()
 
-    # Group by admitting service and admission type for capacity allocation
-    summary = (
-        df.groupby(["admitting_service", "admission_type"])
-        .agg(
-            patient_census=("hadm_id", "count"),
-            avg_clinical_los_hours=("los_hours", "mean"),
-            total_effective_bed_hours=("effective_bed_hours", "sum"),
-            total_surge_capacity_hours=("surge_capacity_hours", "sum"),
-            icu_admission_count=("had_icu_stay", "sum"),
-            in_hospital_deaths=("in_hospital_mortality", "sum"),
-        )
-        .reset_index()
-    )
+    results = []
+    for cu, group in valid_units.groupby(careunit_col):
+        active_pts = len(group)
+        los_series = group["careunit_los_hours"] if "careunit_los_hours" in group else group.get("los_hours", pd.Series([1.0]))
+        valid_los = los_series[los_series > 0]
+        mean_los = float(valid_los.mean()) if not valid_los.empty else 1.0
+        mean_los = max(mean_los, 1.0)
 
-    summary["surge_multiplier_applied"] = surge_multiplier
-    summary["turnover_buffer_applied_hours"] = bed_turnover_lead_hours
+        # Baseline arrival rate via Little's Law equilibrium
+        lambda_base = active_pts / mean_los
+        lambda_surge = lambda_base * surge_multiplier
 
-    logger.info("Generated %d surge capacity feature records", len(summary))
-    return summary
+        # Projected arrivals over lead window (4h)
+        projected_inflow_4h = round(lambda_surge * bed_turnover_lead_hours, 2)
+
+        # Expected discharges over 4h using exponential stay survival distribution
+        p_discharge_4h = 1.0 - float(np.exp(-bed_turnover_lead_hours / mean_los))
+        expected_discharges_4h = round(active_pts * p_discharge_4h, 2)
+
+        # Net Operational Bed Deficit
+        surge_deficit = round(projected_inflow_4h - expected_discharges_4h, 2)
+
+        # Licensed bed capacity: calibrated against standard target occupancy
+        licensed_capacity = max(active_pts + 2, int(np.ceil(active_pts / standard_target_occupancy)))
+        projected_occupancy = (active_pts + surge_deficit) / licensed_capacity
+        projected_occupancy_pct = round(projected_occupancy * 100.0, 2)
+
+        # Operational Risk Classification
+        if projected_occupancy >= 0.90 or surge_deficit > 3.0:
+            risk_tier = "CRITICAL_BOTTLENECK"
+        elif projected_occupancy >= 0.75:
+            risk_tier = "STRAINED"
+        else:
+            risk_tier = "STABLE"
+
+        results.append({
+            "care_unit": cu,
+            "active_patients": active_pts,
+            "baseline_hourly_inflow": round(lambda_base, 4),
+            "surge_multiplier": surge_multiplier,
+            "projected_inflow_4h": projected_inflow_4h,
+            "expected_discharges_4h": expected_discharges_4h,
+            "surge_deficit": surge_deficit,
+            "projected_occupancy_pct": projected_occupancy_pct,
+            "operational_risk_tier": risk_tier,
+            "governance_alert_flag": (risk_tier == "CRITICAL_BOTTLENECK"),
+        })
+
+    res_df = pd.DataFrame(results)
+
+    # Sort descending by surge deficit to highlight bottlenecks first
+    res_df = res_df.sort_values(by=["surge_deficit", "projected_occupancy_pct"], ascending=[False, False]).reset_index(drop=True)
+
+    # Dual-layer persistence
+    parquet_dest = Path(output_parquet_path) if output_parquet_path else Path("data/04_feature/feat_bed_surge_metrics.parquet")
+    csv_dest = Path(output_csv_path) if output_csv_path else Path("data/04_feature/powerbi_executive_capacity_report.csv")
+
+    parquet_dest.parent.mkdir(parents=True, exist_ok=True)
+    csv_dest.parent.mkdir(parents=True, exist_ok=True)
+
+    res_df.to_parquet(parquet_dest, compression="snappy", index=False)
+    res_df.to_csv(csv_dest, index=False)
+
+    logger.info("Persisted Feature Parquet dataset: %s (%d care units)", parquet_dest.name, len(res_df))
+    logger.info("Exported Power BI Executive Report: %s (%d care units)", csv_dest.name, len(res_df))
+
+    return res_df
+
+
+# Backward-compatible alias for pipeline and legacy callers
+compute_bed_surge_metrics = simulate_department_surge_capacity
+create_patient_flow = lambda adm, trf, srv: build_patient_flow_trajectories(adm, trf, srv)
