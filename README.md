@@ -35,51 +35,77 @@ Hospital emergency department overcrowding is rarely caused by a baseline defici
 
 ---
 
-## 2. End-to-End System Architecture
+## 2. End-to-End DataOps Architecture (Medallion Lakehouse)
 
-```
-                       CLINICAL DATAOPS PIPELINE (KEDRO DAG)
-                       =====================================
+The pipeline enforces an automated Medallion DataOps design implemented across Kedro nodes, segregating raw HIPAA ingestion, anonymization gates, longitudinal patient trajectory modeling, and discrete-event capacity simulation.
 
-[ Bronze Layer: Raw MIMIC-IV ]
-  ├── admissions.csv
-  ├── transfers.csv
-  └── services.csv
-         │
-         ▼
-+────────────────────────────────────+
-│  Node 1: Ingestion & HIPAA Gate    │  ── Enforces Safe Harbor (Salted SHA-256)
-│  (validate_and_ingest_bronze)      │  ── Drops chronologically corrupt records
-+────────────────────────────────────+     (dischtime < admittime)
-         │
-         ▼
-[ Silver Layer: Intermediate Parquet ]
-  ├── int_admissions.parquet  (Snappy)
-  ├── int_transfers.parquet   (Snappy)
-  └── int_services.parquet    (Snappy)
-         │
-         ▼
-+────────────────────────────────────+
-│  Node 2: Trajectory Modeling       │  ── Window.partitionBy("hadm_id")
-│  (build_patient_flow_trajectories) │       .orderBy("intime")
-+────────────────────────────────────+  ── Calculates careunit LOS,
-         │                                   transfer lag, and ICU flags
-         ▼
-[ Gold Layer: Primary Longitudinal Flow ]
-  └── prm_patient_flow.parquet
-       (1,136 trajectories, 28 feature attributes)
-         │
-         ▼
-+────────────────────────────────────+
-│  Node 3: Discrete-Event Simulator  │  ── Poisson surge: lambda_surge = lambda_base * 1.25
-│  (simulate_department_surge)       │  ── Exponential stay survival clearance (4h window)
-+────────────────────────────────────+
-         │
-         ├──────────────────────────────────────────────┐
-         ▼                                              ▼
-[ Platinum Feature Store ]                   [ Executive BI Delivery ]
-  feat_bed_surge_metrics.parquet               powerbi_executive_capacity_report.csv
-  (Granular unit-level metrics)                (Star-schema mart for hospital operations)
+```mermaid
+flowchart TD
+    %% Styling definitions
+    classDef bronze fill:#FFFBEB,stroke:#F59E0B,stroke-width:1.5px,color:#78350F;
+    classDef silver fill:#F1F5F9,stroke:#64748B,stroke-width:1.5px,color:#0F172A;
+    classDef gold fill:#ECFDF5,stroke:#10B981,stroke-width:1.5px,color:#064E3B;
+    classDef platinum fill:#EFF6FF,stroke:#3B82F6,stroke-width:1.5px,color:#1E3A8A;
+    classDef consumer fill:#FAF5FF,stroke:#8B5CF6,stroke-width:1.5px,color:#4C1D95;
+
+    %% Bronze Tier
+    subgraph Tier_Bronze ["Tier 1: Bronze Ingestion Layer (Raw Clinical Feeds)"]
+        direction TB
+        B1["admissions.csv<br/><i>(MIMIC-IV Demo Raw)</i>"]:::bronze
+        B2["transfers.csv<br/><i>(Raw Bed Moves)</i>"]:::bronze
+        B3["services.csv<br/><i>(Service Transfers)</i>"]:::bronze
+    end
+
+    %% Ingestion & Governance Gate
+    subgraph Gate_Gov ["HIPAA De-Identification & Governance Quality Gate"]
+        G1["validate_and_ingest_bronze_to_silver()"]:::silver
+        G2["Salted SHA-256 Hasher<br/><i>subject_id & hadm_id Anonymization</i>"]:::silver
+        G3["Temporal Invariant Filter<br/><i>(Drop intime >= outtime)</i>"]:::silver
+    end
+
+    Tier_Bronze --> G1
+    G1 --> G2
+    G1 --> G3
+
+    %% Silver Tier
+    subgraph Tier_Silver ["Tier 2: Silver Parquet Lakehouse (Clean Longitudinal Trajectories)"]
+        direction TB
+        S1[("int_admissions.parquet")]:::silver
+        S2[("int_transfers.parquet")]:::silver
+        S3[("int_services.parquet")]:::silver
+        S4["build_patient_flow_trajectories()"]:::silver
+        S5[("prm_patient_flow.parquet<br/><i>Rolling LOS & Bed Sequence Window</i>")]:::silver
+    end
+
+    G2 & G3 --> S1 & S2 & S3
+    S1 & S2 & S3 --> S4
+    S4 --> S5
+
+    %% Gold & Platinum Tier
+    subgraph Tier_Gold ["Tier 3: Gold & Platinum Analytics (Capacity Simulation Engine)"]
+        direction TB
+        L1["simulate_department_surge_capacity()<br/><i>Discrete-Event Poisson Surge & Stay Survival Engine</i>"]:::gold
+        L2[("feat_bed_surge_metrics.parquet<br/><i>Feature Store Mart</i>")]:::gold
+        L3["powerbi_executive_capacity_report.csv<br/><i>Star-Schema Semantic Export</i>"]:::platinum
+        L4["simulation_baseline.json<br/><i>Zero-Cold-Start Web Manifest</i>"]:::platinum
+    end
+
+    S5 --> L1
+    L1 --> L2
+    L1 --> L3
+    L1 --> L4
+
+    %% Consumption Tier
+    subgraph Tier_Consumption ["Tier 4: Enterprise Consumption & Governance"]
+        direction TB
+        C1["Microsoft Power BI Command Center<br/><i>clinical_flow_governance.pbix</i>"]:::consumer
+        C2["Vercel Serverless Web Dashboard<br/><i>Interactive What-If Scenario Governor</i>"]:::consumer
+        C3["Automated CI/CD Quality Gate<br/><i>GitHub Actions + PyTest Invariant Tests</i>"]:::consumer
+    end
+
+    L3 --> C1
+    L4 --> C2
+    L2 -.-> C3
 ```
 
 ---
