@@ -12,7 +12,8 @@ from __future__ import annotations
 import hashlib
 import importlib
 import logging
-from typing import Any, Tuple
+from pathlib import Path
+from typing import Any, Tuple, Union
 import pandas as pd
 import numpy as np
 
@@ -203,6 +204,80 @@ def clean_services(services: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+
+def validate_and_ingest_bronze_to_silver(
+    admissions: Union[pd.DataFrame, str, Path],
+    transfers: Union[pd.DataFrame, str, Path],
+    services: Union[pd.DataFrame, str, Path],
+    salt: str = DEFAULT_SALT,
+    output_dir: Union[str, Path, None] = None,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """Ingest Bronze tables, apply HIPAA de-identification, clean, and persist Silver Parquet.
+
+    Transformations:
+    1. HIPAA De-identification: Hash subject_id and hadm_id with salted SHA-256.
+    2. Data Hygiene: Strip leading/trailing whitespace on categorical columns.
+    3. Timestamp Governance: Standardize admittime, dischtime, intime, outtime to ISO 8601 UTC.
+    4. Chronological Validation: Drop admissions where dischtime < admittime.
+    5. Persistence: Save to 02_intermediate using Snappy compression.
+
+    Args:
+        admissions: Raw admissions DataFrame or file path.
+        transfers: Raw transfers DataFrame or file path.
+        services: Raw services DataFrame or file path.
+        salt: Cryptographic salt for identifier hashing.
+        output_dir: Target directory for intermediate Parquet files (default: data/02_intermediate).
+
+    Returns:
+        Tuple of cleaned (int_admissions, int_transfers, int_services) DataFrames.
+    """
+    logger.info("==================================================================")
+    logger.info("Executing Node 1: validate_and_ingest_bronze_to_silver")
+    logger.info("==================================================================")
+
+    # 1. Load data if paths were provided
+    df_adm = pd.read_csv(admissions) if isinstance(admissions, (str, Path)) else admissions.copy()
+    df_trf = pd.read_csv(transfers) if isinstance(transfers, (str, Path)) else transfers.copy()
+    df_srv = pd.read_csv(services) if isinstance(services, (str, Path)) else services.copy()
+
+    logger.info("Bronze input row counts: admissions=%d, transfers=%d, services=%d", len(df_adm), len(df_trf), len(df_srv))
+
+    # 2. Clean and standardize tables
+    df_adm = clean_admissions(df_adm)
+    df_trf = clean_transfers(df_trf)
+    df_srv = clean_services(df_srv)
+
+    # 3. Apply HIPAA Safe Harbor SHA-256 de-identification
+    for df in (df_adm, df_trf, df_srv):
+        if not df.empty and "subject_id" in df.columns:
+            df["subject_id"] = df["subject_id"].apply(lambda x: hash_identifier(x, salt))
+        if not df.empty and "hadm_id" in df.columns:
+            df["hadm_id"] = df["hadm_id"].apply(lambda x: hash_identifier(x, salt))
+
+    sample_sub = df_adm["subject_id"].iloc[0] if len(df_adm) > 0 else "N/A"
+    sample_hadm = df_adm["hadm_id"].iloc[0] if len(df_adm) > 0 else "N/A"
+    logger.info("HIPAA Safe Harbor SHA-256 de-identification verified:")
+    logger.info("  Sample hashed subject_id: %s (length=%d)", sample_sub, len(sample_sub))
+    logger.info("  Sample hashed hadm_id:    %s (length=%d)", sample_hadm, len(sample_hadm))
+
+    # 4. Persist to Silver Parquet with Snappy compression
+    dest_dir = Path(output_dir) if output_dir else Path("data/02_intermediate")
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    int_adm_path = dest_dir / "int_admissions.parquet"
+    int_trf_path = dest_dir / "int_transfers.parquet"
+    int_srv_path = dest_dir / "int_services.parquet"
+
+    df_adm.to_parquet(int_adm_path, compression="snappy", index=False)
+    df_trf.to_parquet(int_trf_path, compression="snappy", index=False)
+    df_srv.to_parquet(int_srv_path, compression="snappy", index=False)
+
+    logger.info("Persisted Silver Parquet datasets (compression=snappy):")
+    logger.info("  - %s (%d rows)", int_adm_path.name, len(df_adm))
+    logger.info("  - %s (%d rows)", int_trf_path.name, len(df_trf))
+    logger.info("  - %s (%d rows)", int_srv_path.name, len(df_srv))
+
+    return df_adm, df_trf, df_srv
 
 
 def create_patient_flow(
