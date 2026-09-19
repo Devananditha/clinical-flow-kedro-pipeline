@@ -5,7 +5,7 @@ __pycache__/
 *.so
 .pytest_cache/
 .ipynb_checkpoints/
-reports/
+reports/junit/
 
 # Virtual Environments
 .venv/
