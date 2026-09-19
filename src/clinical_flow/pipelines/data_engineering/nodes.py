@@ -107,42 +107,41 @@ def clean_admissions(admissions: pd.DataFrame) -> pd.DataFrame:
     """Clean, standardize, and govern raw MIMIC-IV admissions table.
 
     Args:
-        admissions: Raw admissions DataFrame from 01_raw layer.
+        admissions: Raw admissions DataFrame from Bronze layer.
 
     Returns:
         Cleaned intermediate admissions DataFrame with standardized schema and LOS metrics.
     """
-    logger.info("Starting Bronze -> Silver cleaning on admissions (n=%d)", len(admissions))
+    if admissions.empty or "subject_id" not in admissions.columns:
+        return admissions.copy()
+
     df = admissions.copy()
-
-    # Governance: ensure required primary keys are present
     df = df.dropna(subset=["subject_id", "hadm_id"])
-    df["subject_id"] = df["subject_id"].astype("int64")
-    df["hadm_id"] = df["hadm_id"].astype("int64")
 
-    # Timestamp parsing & validation
+    # Timestamp parsing to ISO 8601 UTC
     time_cols = ["admittime", "dischtime", "deathtime", "edregtime", "edouttime"]
     for col in time_cols:
         if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors="coerce")
+            df[col] = pd.to_datetime(df[col], utc=True, errors="coerce")
 
-    # Calculate inpatient length of stay (LOS) in hours and days
-    df["los_hours"] = (df["dischtime"] - df["admittime"]).dt.total_seconds() / 3600.0
-    df["los_days"] = df["los_hours"] / 24.0
+    # Inpatient length of stay (LOS) in hours and days
+    df["los_hours"] = compute_duration_hours(df["admittime"], df["dischtime"], default=0.0)
+    df["los_days"] = (df["los_hours"] / 24.0).round(4)
 
-    # Clinical Governance: Discard negative LOS records (anomalous timestamps)
-    valid_mask = df["los_hours"] >= 0
+    # Clinical Governance: Discard impossible hospital timelines (dischtime < admittime)
+    valid_mask = df["dischtime"] >= df["admittime"]
     anomalies = (~valid_mask).sum()
     if anomalies > 0:
-        logger.warning("Detected %d admissions with negative LOS. Filtering out anomalous records.", anomalies)
+        logger.warning("Detected %d admissions with dischtime < admittime. Filtering anomalous records.", anomalies)
         df = df[valid_mask]
 
-    # Clinical flags
+    # Sanitize categorical fields
+    df["admission_type"] = df["admission_type"].fillna("UNKNOWN").astype(str).str.strip().str.upper()
     df["is_emergency"] = df["admission_type"].str.contains("EMER|URGENT", case=False, na=False)
     df["in_hospital_mortality"] = df["hospital_expire_flag"].fillna(0).astype(int)
 
-    logger.info("Successfully produced cleaned admissions table (n=%d)", len(df))
     return df
+
 
 
 def clean_transfers(transfers: pd.DataFrame) -> pd.DataFrame:
