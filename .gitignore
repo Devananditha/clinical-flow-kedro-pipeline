@@ -1,0 +1,44 @@
+# Byte-compiled / optimized / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Kedro and IDE metadata
+.kedro/
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+*.log
+
+# Medallion Data Directory: Exclude all raw/processed clinical datasets, keep directory structure via .gitkeep
+data/*
+!data/01_raw/
+!data/02_intermediate/
+!data/03_primary/
+!data/04_feature/
+
+data/01_raw/*
+!data/01_raw/.gitkeep
+
+data/02_intermediate/*
+!data/02_intermediate/.gitkeep
+
+data/03_primary/*
+!data/03_primary/.gitkeep
+
+data/04_feature/*
+!data/04_feature/.gitkeep
