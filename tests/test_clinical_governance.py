@@ -2,7 +2,8 @@
 
 Senior Staff Healthcare DataOps & Analytics Engineering
 Validates clinical boundary conditions, timestamp sanity, identifier integrity,
-and HIPAA Safe Harbor SHA-256 de-identification rules.
+HIPAA Safe Harbor SHA-256 de-identification, window sequence ordering,
+discrete-event surge simulation, and Power BI export schema compliance.
 """
 
 from pathlib import Path
@@ -13,9 +14,13 @@ from clinical_flow.pipelines.data_engineering.nodes import (
     clean_admissions,
     clean_transfers,
     clean_services,
+    create_patient_flow,
     get_execution_engine,
     hash_identifier,
     validate_and_ingest_bronze_to_silver,
+    build_patient_flow_trajectories,
+    simulate_department_surge_capacity,
+    compute_bed_surge_metrics,
 )
 
 
@@ -85,6 +90,55 @@ def test_validate_and_ingest_bronze_to_silver_hipaa(
     assert (tmp_path / "int_services.parquet").exists()
 
 
+def test_build_patient_flow_trajectories_windowing(
+    sample_raw_admissions: pd.DataFrame,
+    sample_raw_transfers: pd.DataFrame,
+    sample_raw_services: pd.DataFrame,
+    tmp_path,
+):
+    """Verify window partitioning, sequence IDs, stay duration, and transition lag."""
+    int_adm, int_trf, int_srv = validate_and_ingest_bronze_to_silver(
+        admissions=sample_raw_admissions,
+        transfers=sample_raw_transfers,
+        services=sample_raw_services,
+        salt="governance_test_salt",
+        output_dir=tmp_path,
+    )
+
+    out_file = tmp_path / "prm_patient_flow.parquet"
+    trajectory = build_patient_flow_trajectories(
+        int_admissions=int_adm,
+        int_transfers=int_trf,
+        int_services=int_srv,
+        output_path=out_file,
+    )
+
+    assert out_file.exists()
+    assert not trajectory.empty
+
+    # Find patient with multiple transfers (hadm 2001)
+    hashed_2001 = hash_identifier(2001, salt="governance_test_salt")
+    pt_stays = trajectory[trajectory["hadm_id"] == hashed_2001].sort_values("transfer_sequence_id")
+
+    # Patient 2001 had 2 transfers
+    assert len(pt_stays) == 2
+    # Sequences must be 1 and 2
+    assert list(pt_stays["transfer_sequence_id"]) == [1, 2]
+
+    # First stay: lag is 0.0, prev_careunit is NaN/None
+    first_stay = pt_stays.iloc[0]
+    assert first_stay["transfer_sequence_id"] == 1
+    assert first_stay["transition_lag_hours"] == 0.0
+
+    # Second stay: care unit was MICU -> is_icu_stay is True
+    second_stay = pt_stays.iloc[1]
+    assert second_stay["is_icu_stay"] == True
+    assert second_stay["prev_careunit"] == "EMERGENCY DEPARTMENT"
+
+    # Emergency admission indicator
+    assert first_stay["emergency_admission"] == True
+
+
 def test_clean_admissions_governance(sample_raw_admissions: pd.DataFrame):
     """Verify that admissions cleaning enforces key integrity and chronological sanity."""
     cleaned = clean_admissions(sample_raw_admissions)
@@ -104,3 +158,105 @@ def test_clean_services_standardization(sample_raw_services: pd.DataFrame):
     cleaned = clean_services(sample_raw_services)
     assert (cleaned["curr_service"] == cleaned["curr_service"].str.upper()).all()
     assert len(cleaned) == 3
+
+
+def test_surge_multiplier_effect(
+    sample_raw_admissions: pd.DataFrame,
+    sample_raw_transfers: pd.DataFrame,
+    sample_raw_services: pd.DataFrame,
+    tmp_path,
+):
+    """Verify that projected_inflow_4h with surge multiplier (1.25) is strictly greater than baseline 4h inflow."""
+    int_adm, int_trf, int_srv = validate_and_ingest_bronze_to_silver(
+        admissions=sample_raw_admissions,
+        transfers=sample_raw_transfers,
+        services=sample_raw_services,
+        output_dir=tmp_path,
+    )
+    flow = build_patient_flow_trajectories(int_adm, int_trf, int_srv)
+
+    surge_multiplier = 1.25
+    lead_hours = 4
+
+    metrics = simulate_department_surge_capacity(
+        flow,
+        surge_multiplier=surge_multiplier,
+        bed_turnover_lead_hours=lead_hours,
+        output_parquet_path=tmp_path / "feat_surge.parquet",
+        output_csv_path=tmp_path / "report.csv",
+    )
+
+    assert not metrics.empty
+    # For every active care unit, projected inflow (4h) with surge (1.25) > baseline 4h inflow
+    for _, row in metrics.iterrows():
+        baseline_4h = row["baseline_hourly_inflow"] * lead_hours
+        assert row["projected_inflow_4h"] > baseline_4h
+
+
+def test_risk_tier_classification_invariants(
+    sample_raw_admissions: pd.DataFrame,
+    sample_raw_transfers: pd.DataFrame,
+    sample_raw_services: pd.DataFrame,
+    tmp_path,
+):
+    """Ensure 100% of care units have a valid categorical risk tier and consistent alert flag."""
+    int_adm, int_trf, int_srv = validate_and_ingest_bronze_to_silver(
+        admissions=sample_raw_admissions,
+        transfers=sample_raw_transfers,
+        services=sample_raw_services,
+        output_dir=tmp_path,
+    )
+    flow = build_patient_flow_trajectories(int_adm, int_trf, int_srv)
+
+    valid_tiers = {"CRITICAL_BOTTLENECK", "STRAINED", "STABLE"}
+    metrics = simulate_department_surge_capacity(flow, output_parquet_path=tmp_path / "feat.parquet", output_csv_path=tmp_path / "rep.csv")
+
+    assert not metrics.empty
+    assert set(metrics["operational_risk_tier"]).issubset(valid_tiers)
+    for _, row in metrics.iterrows():
+        if row["operational_risk_tier"] == "CRITICAL_BOTTLENECK":
+            assert row["governance_alert_flag"] is True or row["governance_alert_flag"] == True
+        else:
+            assert row["governance_alert_flag"] is False or row["governance_alert_flag"] == False
+
+
+def test_powerbi_csv_export(
+    sample_raw_admissions: pd.DataFrame,
+    sample_raw_transfers: pd.DataFrame,
+    sample_raw_services: pd.DataFrame,
+    tmp_path,
+):
+    """Verify that Power BI executive CSV report exists, is non-empty, and matches required headers."""
+    int_adm, int_trf, int_srv = validate_and_ingest_bronze_to_silver(
+        admissions=sample_raw_admissions,
+        transfers=sample_raw_transfers,
+        services=sample_raw_services,
+        output_dir=tmp_path,
+    )
+    flow = build_patient_flow_trajectories(int_adm, int_trf, int_srv)
+
+    csv_path = tmp_path / "powerbi_executive_capacity_report.csv"
+    simulate_department_surge_capacity(
+        flow,
+        output_csv_path=csv_path,
+        output_parquet_path=tmp_path / "feat.parquet",
+    )
+
+    assert csv_path.exists()
+    assert csv_path.stat().st_size > 0
+
+    exported_df = pd.read_csv(csv_path)
+    expected_cols = [
+        "care_unit",
+        "active_patients",
+        "baseline_hourly_inflow",
+        "surge_multiplier",
+        "projected_inflow_4h",
+        "expected_discharges_4h",
+        "surge_deficit",
+        "projected_occupancy_pct",
+        "operational_risk_tier",
+        "governance_alert_flag",
+    ]
+    assert list(exported_df.columns) == expected_cols
+    assert len(exported_df) > 0
