@@ -1,8 +1,13 @@
 """Data Engineering Pipeline definition for Kedro."""
 
+import importlib
+
 try:
-    from kedro.pipeline import Pipeline, node, pipeline
-except ImportError:
+    _kedro_pipe = importlib.import_module("kedro.pipeline")
+    Pipeline = getattr(_kedro_pipe, "Pipeline")
+    node = getattr(_kedro_pipe, "node")
+    pipeline = getattr(_kedro_pipe, "pipeline")
+except (ImportError, ModuleNotFoundError):
     # Graceful fallback shim when running in an environment prior to installing requirements.txt
     class Node:
         def __init__(self, func, inputs, outputs, name=None, tags=None):
@@ -23,60 +28,48 @@ except ImportError:
         return Pipeline(nodes=nodes)
 
 from .nodes import (
-    clean_admissions,
-    clean_transfers,
-    clean_services,
-    create_patient_flow,
-    compute_bed_surge_metrics,
+    validate_and_ingest_bronze_to_silver,
+    build_patient_flow_trajectories,
+    simulate_department_surge_capacity,
 )
 
 
 def create_pipeline(**kwargs) -> Pipeline:
-    """Instantiate the Clinical Flow Medallion Data Engineering Pipeline.
+    """Instantiate the Clinical Flow Medallion Data Engineering Pipeline (Phase 2).
 
     Returns:
-        Kedro Pipeline composing Bronze->Silver, Silver->Gold, and Gold->Feature transformations.
+        Kedro Pipeline chaining:
+          1. Bronze -> Silver (HIPAA Safe Harbor De-identification & Cleansing)
+          2. Silver -> Gold (Windowed Patient Flow & Ward Trajectory Modeling)
+          3. Gold -> Feature (Discrete-Event Surge Simulation & Power BI Export)
     """
     return pipeline(
         [
             node(
-                func=clean_admissions,
-                inputs="admissions",
-                outputs="int_admissions",
-                name="clean_admissions_node",
-                tags=["silver", "admissions"],
+                func=validate_and_ingest_bronze_to_silver,
+                inputs=["admissions", "transfers", "services"],
+                outputs=["int_admissions", "int_transfers", "int_services"],
+                name="validate_and_ingest_bronze_to_silver_node",
+                tags=["bronze_to_silver", "hipaa_deidentification", "cleansing"],
             ),
             node(
-                func=clean_transfers,
-                inputs="transfers",
-                outputs="int_transfers",
-                name="clean_transfers_node",
-                tags=["silver", "transfers"],
-            ),
-            node(
-                func=clean_services,
-                inputs="services",
-                outputs="int_services",
-                name="clean_services_node",
-                tags=["silver", "services"],
-            ),
-            node(
-                func=create_patient_flow,
+                func=build_patient_flow_trajectories,
                 inputs=["int_admissions", "int_transfers", "int_services"],
                 outputs="prm_patient_flow",
-                name="create_patient_flow_node",
-                tags=["gold", "patient_flow"],
+                name="build_patient_flow_trajectories_node",
+                tags=["silver_to_gold", "window_trajectories", "icu_features"],
             ),
             node(
-                func=compute_bed_surge_metrics,
+                func=simulate_department_surge_capacity,
                 inputs=[
                     "prm_patient_flow",
                     "params:surge_multiplier",
                     "params:bed_turnover_lead_hours",
+                    "params:standard_target_occupancy",
                 ],
                 outputs="feat_bed_surge_metrics",
-                name="compute_bed_surge_metrics_node",
-                tags=["feature", "surge_capacity"],
+                name="simulate_department_surge_capacity_node",
+                tags=["gold_to_feature", "discrete_event_surge", "powerbi_mart"],
             ),
         ]
     )
