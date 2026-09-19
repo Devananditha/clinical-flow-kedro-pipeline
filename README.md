@@ -1,5 +1,6 @@
 # Clinical Flow Optimization Engine (DataOps & Surge Simulator)
 
+[![DataOps CI & Governance Gate](https://github.com/Devananditha/clinical-flow-kedro-pipeline/actions/workflows/dataops-ci.yml/badge.svg)](https://github.com/Devananditha/clinical-flow-kedro-pipeline/actions/workflows/dataops-ci.yml)
 [![CI/DataOps Governance](https://img.shields.io/badge/DataOps-Kedro%200.19-blue.svg?logo=kedro)](https://kedro.org/)
 [![Compute Engine](https://img.shields.io/badge/Compute-PySpark%203.5%20%7C%20Vectorized%20Pandas-orange.svg?logo=apachespark)](https://spark.apache.org/)
 [![Data Lakehouse](https://img.shields.io/badge/Lakehouse-Medallion%20Parquet-green.svg)](https://parquet.apache.org/)

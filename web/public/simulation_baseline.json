@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-19T17:36:19.726196+00:00Z",
+  "generated_at": "2026-09-19T20:24:29.279530+00:00Z",
   "pipeline_version": "phase_2_surge_simulator",
   "surge_config": {
     "default_surge_multiplier": 1.25,
@@ -137,7 +137,7 @@
       "care_unit": "OBSERVATION",
       "active_patients": 2,
       "baseline_hourly_inflow": 0.1686,
-      "mean_los_hours": 11.8651,
+      "mean_los_hours": 11.8652,
       "licensed_capacity": 4
     },
     {

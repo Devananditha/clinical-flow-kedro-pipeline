@@ -116,6 +116,13 @@ def provision_raw_dataset(
 
 
 if __name__ == "__main__":
+    if "--ci" in sys.argv or "-c" in sys.argv:
+        from scripts.generate_ci_fixtures import generate_ci_datasets
+        logger.info("Executing CI synthetic data provisioning...")
+        generate_ci_datasets()
+        logger.info("CI synthetic dataset successfully generated into data/01_raw!")
+        sys.exit(0)
+
     success = provision_raw_dataset()
     if not success:
         logger.error("Dataset provisioning failed. Verify download location and file integrity.")

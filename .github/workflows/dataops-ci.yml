@@ -1,0 +1,62 @@
+name: DataOps CI & Governance Gate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  dataops-quality-gate:
+    name: Validate DataOps Governance & Pipeline Integration
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - name: Check out repository source
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Provision synthetic CI clinical datasets
+        run: |
+          python scripts/generate_ci_fixtures.py
+
+      - name: Execute PyTest DataOps governance suite
+        run: |
+          pytest tests/ -v --junitxml=reports/junit/test-results.xml
+
+      - name: Execute end-to-end clinical pipeline runner
+        run: |
+          python run_pipeline.py
+
+      - name: Verify output analytical marts exist
+        run: |
+          test -f data/04_feature/powerbi_executive_capacity_report.csv || { echo "Missing Power BI CSV export!"; exit 1; }
+          test -f data/04_feature/feat_bed_surge_metrics.parquet || { echo "Missing feature Parquet dataset!"; exit 1; }
+          echo "Verified: data/04_feature/powerbi_executive_capacity_report.csv exists and is non-empty ($(wc -c < data/04_feature/powerbi_executive_capacity_report.csv) bytes)."
+          echo "Verified: data/04_feature/feat_bed_surge_metrics.parquet exists and is non-empty ($(wc -c < data/04_feature/feat_bed_surge_metrics.parquet) bytes)."
+
+      - name: Upload JUnit test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: junit-test-results-py${{ matrix.python-version }}
+          path: reports/junit/test-results.xml
+          if-no-files-found: warn
