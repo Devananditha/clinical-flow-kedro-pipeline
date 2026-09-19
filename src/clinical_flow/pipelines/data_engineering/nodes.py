@@ -9,11 +9,50 @@ Implements clean Medallion transformations:
 
 from __future__ import annotations
 
+import importlib
 import logging
+from typing import Any, Tuple
 import pandas as pd
 import numpy as np
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("DataOps.Nodes")
+
+
+def get_execution_engine() -> Tuple[str, Any]:
+    """Initialize a PySpark execution session with seamless vectorized Pandas/PyArrow fallback.
+
+    Attempts to spin up a local SparkSession:
+        SparkSession.builder.appName("ClinicalFlowOps")
+            .master("local[*]")
+            .config("spark.driver.memory", "2g")
+            .getOrCreate()
+
+    If Java / JVM or PySpark is missing or cannot initialize, logs a structured warning:
+        [WARN] Java/JVM not detected. Falling back to high-performance vectorized Pandas/PyArrow engine
+
+    Returns:
+        Tuple[str, Any]: Engine name ("spark" or "pandas") and session object (SparkSession or None).
+    """
+    try:
+        pyspark_sql = importlib.import_module("pyspark.sql")
+        spark_session_cls = getattr(pyspark_sql, "SparkSession")
+
+        spark = (
+            spark_session_cls.builder.appName("ClinicalFlowOps")
+            .master("local[*]")
+            .config("spark.driver.memory", "2g")
+            .getOrCreate()
+        )
+        # Probe JVM bridge to confirm execution readiness
+        _ = spark.sparkContext.version
+        logger.info("[INFO] PySpark engine initialized successfully (Spark version: %s)", spark.version)
+        return "spark", spark
+    except Exception:
+        logger.warning(
+            "[WARN] Java/JVM not detected. Falling back to high-performance vectorized Pandas/PyArrow engine"
+        )
+        return "pandas", None
+
 
 
 def clean_admissions(admissions: pd.DataFrame) -> pd.DataFrame:
