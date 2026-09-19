@@ -515,7 +515,7 @@ def simulate_department_surge_capacity(
         active_pts = len(group)
         los_series = group["careunit_los_hours"] if "careunit_los_hours" in group else group.get("los_hours", pd.Series([1.0]))
         valid_los = los_series[los_series > 0]
-        mean_los = float(valid_los.mean()) if not valid_los.empty else 1.0
+        mean_los = valid_los.mean() if not valid_los.empty else 1.0
         mean_los = max(mean_los, 1.0)
 
         # Baseline arrival rate via Little's Law equilibrium
@@ -550,7 +550,7 @@ def simulate_department_surge_capacity(
             "active_patients": active_pts,
             "baseline_hourly_inflow": round(lambda_base, 4),
             "mean_los_hours": round(mean_los, 4),
-            "licensed_capacity": int(licensed_capacity),
+            "licensed_capacity": licensed_capacity,
             "surge_multiplier": surge_multiplier,
             "projected_inflow_4h": projected_inflow_4h,
             "expected_discharges_4h": expected_discharges_4h,
