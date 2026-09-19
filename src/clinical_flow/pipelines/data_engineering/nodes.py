@@ -19,6 +19,7 @@ import numpy as np
 logger = logging.getLogger("DataOps.Nodes")
 
 DEFAULT_SALT = "clinical_flow_phi_salt_2026"
+ICU_CAREUNIT_TOKENS = ("MICU", "SICU", "CCU", "TSICU", "CVICU", "ICU")
 
 
 def hash_identifier(identifier: Any, salt: str = DEFAULT_SALT) -> str | None:
@@ -148,32 +149,33 @@ def clean_transfers(transfers: pd.DataFrame) -> pd.DataFrame:
     """Clean, filter, and standardize raw MIMIC-IV transfers table.
 
     Args:
-        transfers: Raw transfers DataFrame from 01_raw layer.
+        transfers: Raw transfers DataFrame from Bronze layer.
 
     Returns:
-        Cleaned intermediate transfers DataFrame with care unit durations.
+        Cleaned intermediate transfers DataFrame with care unit stay durations.
     """
-    logger.info("Starting Bronze -> Silver cleaning on transfers (n=%d)", len(transfers))
+    if transfers.empty or "subject_id" not in transfers.columns:
+        return transfers.copy()
+
     df = transfers.copy()
-
-    # Discard non-admission events (missing hadm_id)
     df = df.dropna(subset=["subject_id", "hadm_id"])
-    df["subject_id"] = df["subject_id"].astype("int64")
-    df["hadm_id"] = df["hadm_id"].astype("int64")
-    df["transfer_id"] = df["transfer_id"].astype("int64")
 
-    # Parse timestamps
-    df["intime"] = pd.to_datetime(df["intime"], errors="coerce")
-    df["outtime"] = pd.to_datetime(df["outtime"], errors="coerce")
+    # Timestamps to ISO 8601 UTC
+    df["intime"] = pd.to_datetime(df["intime"], utc=True, errors="coerce")
+    df["outtime"] = pd.to_datetime(df["outtime"], utc=True, errors="coerce")
 
-    # Calculate transfer duration in hours
-    df["careunit_stay_hours"] = (df["outtime"] - df["intime"]).dt.total_seconds() / 3600.0
+    # Calculate stay duration in hours
+    df["careunit_stay_hours"] = compute_duration_hours(df["intime"], df["outtime"], default=0.0)
 
-    # Standardize care unit tags
-    df["careunit"] = df["careunit"].fillna("UNKNOWN").str.strip().str.upper()
-    df["is_icu"] = df["careunit"].str.contains("ICU|CCU|MICU|SICU|TSICU|CVICU", case=False, na=False)
+    # Sanitize care unit descriptions
+    raw_col = "careunit" if "careunit" in df.columns else "curr_careunit"
+    sanitized = df[raw_col].fillna("UNKNOWN").astype(str).str.strip().str.upper()
+    df["curr_careunit"] = sanitized
+    df["careunit"] = sanitized
+    df["is_icu"] = df["curr_careunit"].apply(
+        lambda x: any(token in str(x).upper() for token in ICU_CAREUNIT_TOKENS) if pd.notna(x) else False
+    )
 
-    logger.info("Successfully produced cleaned transfers table (n=%d)", len(df))
     return df
 
 
@@ -181,26 +183,26 @@ def clean_services(services: pd.DataFrame) -> pd.DataFrame:
     """Clean and standardize raw MIMIC-IV clinical services table.
 
     Args:
-        services: Raw services DataFrame from 01_raw layer.
+        services: Raw services DataFrame from Bronze layer.
 
     Returns:
         Cleaned intermediate clinical services DataFrame.
     """
-    logger.info("Starting Bronze -> Silver cleaning on services (n=%d)", len(services))
-    df = services.copy()
+    if services.empty or "subject_id" not in services.columns:
+        return services.copy()
 
+    df = services.copy()
     df = df.dropna(subset=["subject_id", "hadm_id"])
-    df["subject_id"] = df["subject_id"].astype("int64")
-    df["hadm_id"] = df["hadm_id"].astype("int64")
 
     if "transfertime" in df.columns:
-        df["transfertime"] = pd.to_datetime(df["transfertime"], errors="coerce")
+        df["transfertime"] = pd.to_datetime(df["transfertime"], utc=True, errors="coerce")
 
-    df["curr_service"] = df["curr_service"].fillna("UNKNOWN").str.strip().str.upper()
-    df["prev_service"] = df["prev_service"].fillna("NONE").str.strip().str.upper()
+    df["curr_service"] = df["curr_service"].fillna("UNKNOWN").astype(str).str.strip().str.upper()
+    if "prev_service" in df.columns:
+        df["prev_service"] = df["prev_service"].fillna("NONE").astype(str).str.strip().str.upper()
 
-    logger.info("Successfully produced cleaned services table (n=%d)", len(df))
     return df
+
 
 
 def create_patient_flow(
