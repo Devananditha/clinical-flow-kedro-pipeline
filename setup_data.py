@@ -117,6 +117,9 @@ def provision_raw_dataset(
 
 if __name__ == "__main__":
     if "--ci" in sys.argv or "-c" in sys.argv:
+        project_root = Path(__file__).resolve().parent
+        if str(project_root) not in sys.path:
+            sys.path.insert(0, str(project_root))
         from scripts.generate_ci_fixtures import generate_ci_datasets
         logger.info("Executing CI synthetic data provisioning...")
         generate_ci_datasets()

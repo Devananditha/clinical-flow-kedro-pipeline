@@ -2,10 +2,12 @@
   "include": [
     "src",
     "tests",
+    "scripts",
     "run_pipeline.py",
     "setup_data.py"
   ],
   "extraPaths": [
-    "src"
+    "src",
+    "."
   ]
 }

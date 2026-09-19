@@ -15,8 +15,8 @@ project_name = "clinical_flow"
 kedro_init_version = "0.19.6"
 
 [tool.pyright]
-include = ["src", "tests", "run_pipeline.py", "setup_data.py"]
-extraPaths = ["src"]
+include = ["src", "tests", "scripts", "run_pipeline.py", "setup_data.py"]
+extraPaths = ["src", "."]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
