@@ -136,6 +136,7 @@ def run_pipeline() -> None:
     logger.info("--- [STAGE 3/3] Node 3: Discrete-Event Bed Capacity & Surge Simulation ---")
     feat_out_path = feat_dir / "feat_bed_surge_metrics.parquet"
     csv_out_path = feat_dir / "powerbi_executive_capacity_report.csv"
+    json_out_path = PROJECT_ROOT / "web" / "public" / "simulation_baseline.json"
 
     feat_bed_surge = simulate_department_surge_capacity(
         patient_flow=prm_patient_flow,
@@ -144,6 +145,7 @@ def run_pipeline() -> None:
         standard_target_occupancy=standard_target_occupancy,
         output_parquet_path=feat_out_path,
         output_csv_path=csv_out_path,
+        output_json_path=json_out_path,
     )
 
     # Clean Tabular Summary Display
