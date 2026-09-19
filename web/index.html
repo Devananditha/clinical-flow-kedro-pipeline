@@ -1,657 +1,736 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full bg-slate-100">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clinical Flow Capacity Governor | MIMIC-IV Telemetry</title>
-  <meta name="description" content="Clinical capacity simulation and discrete-event surge analysis for hospital bed management and executive operations." />
-  <meta name="keywords" content="clinical capacity, hospital surge, bed management, discrete event simulation, healthcare operations" />
+  <title>Clinical Flow Capacity Governor | Hospital Command Center</title>
+  <meta name="description" content="Longitudinal Bed Turnover Engine & Discrete-Event Inpatient Surge Telemetry" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    body { font-family: "Inter", sans-serif; background: #f8fafc; }
-    .mono { font-family: "JetBrains Mono", monospace; }
-
-    /* Range inputs */
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #F1F5F9; color: #0F172A; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; font-feature-settings: "tnum" 1, "zero" 1; }
+    
+    /* Native Range Inputs with accent-slate-800 */
     input[type=range] {
       -webkit-appearance: none; appearance: none;
-      accent-color: #2563eb; height: 4px; width: 100%;
-      background: #e2e8f0; border-radius: 2px; outline: none; cursor: pointer;
+      width: 100%; height: 5px;
+      background: #E2E8F0; border-radius: 9999px;
+      outline: none; cursor: pointer; accent-color: #0F172A;
     }
     input[type=range]::-webkit-slider-thumb {
-      -webkit-appearance: none; width: 16px; height: 16px;
-      border-radius: 50%; background: #2563eb; cursor: pointer;
-      border: 2px solid #fff; box-shadow: 0 0 0 1px #2563eb;
-      transition: transform 0.1s ease;
+      -webkit-appearance: none; appearance: none;
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #0F172A; border: 2px solid #FFFFFF;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      cursor: pointer; transition: transform 0.1s ease;
     }
-    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
-    input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; }
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+    input[type=range]::-moz-range-thumb {
+      width: 16px; height: 16px; border-radius: 50%;
+      background: #0F172A; border: 2px solid #FFFFFF;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      cursor: pointer;
+    }
 
-    /* Table */
-    .trow { transition: background 0.1s; }
-    .trow:hover { background: #f8fafc !important; }
-    .tbl-scroll { max-height: 420px; overflow-y: auto; }
-    ::-webkit-scrollbar { width: 5px; }
-    ::-webkit-scrollbar-track { background: #f1f5f9; }
-    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    /* Table styles */
+    .table-container::-webkit-scrollbar { width: 6px; height: 6px; }
+    .table-container::-webkit-scrollbar-track { background: #F8FAFC; }
+    .table-container::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+    .table-container::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
 
-    /* Risk badges */
-    .badge-crit   { background:#fff1f2; border:1px solid #fecdd3; color:#be123c; }
-    .badge-strain { background:#fffbeb; border:1px solid #fde68a; color:#b45309; }
-    .badge-stable { background:#f0fdf4; border:1px solid #bbf7d0; color:#15803d; }
+    /* Operational Status Pills */
+    .badge-critical { background-color: #FFF1F2; color: #9F1239; border: 1px solid #FECDD3; }
+    .badge-strained { background-color: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
+    .badge-stable   { background-color: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; }
 
-    /* Occupancy bar */
-    .occ-track { background:#e2e8f0; height:6px; border-radius:3px; overflow:hidden; }
-    .occ-fill  { height:6px; border-radius:3px; transition:width 0.3s ease; }
-
-    /* Filter buttons */
-    .fbtn { transition: all 0.12s ease; cursor: pointer; }
-
-    /* Export button */
-    .exp-btn { transition: background 0.15s ease; }
-    .exp-btn:hover { background: #1d4ed8; }
-
-    /* Pulse */
-    @keyframes pulse-live { 0%,100%{opacity:1} 50%{opacity:0.35} }
-    .pulse-live { animation: pulse-live 2.2s ease-in-out infinite; }
-
-    /* Header navy accent line */
-    .header-accent { border-bottom: 3px solid #1e3a8a; }
-
-    /* KPI hover */
-    .kpi-tile { transition: box-shadow 0.15s ease; }
-    .kpi-tile:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.07); }
+    /* Subtle Heartbeat Pulse */
+    @keyframes subtle-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.95); } }
+    .pulse-indicator { animation: subtle-pulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
   </style>
 </head>
-<body class="min-h-screen text-slate-900">
+<body class="min-h-screen flex flex-col text-slate-900 bg-slate-100 antialiased">
 
-<!-- ════════════════════ HEADER ════════════════════════════════════════════ -->
-<header class="bg-white border-b border-slate-200 header-accent">
-  <div class="max-w-screen-2xl mx-auto px-6 py-3 flex items-center justify-between flex-wrap gap-3">
-    <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-md bg-blue-800 flex items-center justify-center shrink-0">
-        <svg width="18" height="18" fill="none" stroke="white" stroke-width="1.8" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round"
-            d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"/>
-        </svg>
+  <!-- ════════════════════ 1. EXECUTIVE HEADER ════════════════════ -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+      
+      <!-- Left: Branding & Subtitle -->
+      <div class="flex items-start gap-3.5">
+        <div class="w-10 h-10 rounded bg-slate-900 flex items-center justify-center text-white shrink-0 mt-0.5 shadow-sm">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m1-3l1 3m5-3l-1 3m1-3l1 3M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.75m10.5 3.75v-3.75" />
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 class="text-base font-bold text-slate-900 tracking-tight leading-none">
+              Clinical Flow Capacity Governor
+            </h1>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider bg-slate-100 text-slate-700 border border-slate-300 uppercase">
+              MIMIC-IV LIVE REPLAY
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-1 leading-normal">
+            Longitudinal Bed Turnover Engine &amp; Discrete-Event Inpatient Surge Telemetry
+          </p>
+        </div>
       </div>
-      <div>
-        <h1 class="text-sm font-bold text-slate-900 leading-tight tracking-tight">
-          Clinical Flow Capacity Governor
-        </h1>
-        <p class="text-xs text-slate-500 mt-0.5">
-          MIMIC-IV Telemetry &middot; Discrete-Event Surge &amp; Bed Turnover Engine
+
+      <!-- Right: Telemetry Status & Export Button -->
+      <div class="flex items-center gap-3 sm:gap-4 self-end md:self-auto">
+        <div class="flex items-center gap-2 px-2.5 py-1.5 rounded bg-slate-50 border border-slate-200">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 pulse-indicator"></span>
+          <span class="text-xs font-medium text-slate-600">Engine Status: <strong class="text-slate-900 font-semibold">Active</strong> (Snappy Parquet Feeds)</span>
+        </div>
+        <button onclick="exportCSV()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded shadow-sm hover:bg-slate-50 active:bg-slate-100 transition">
+          <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+          </svg>
+          Export CSV Audit
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ════════════════════ WORKSPACE BODY ════════════════════ -->
+  <main class="max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-4 flex-1 flex flex-col gap-4">
+
+    <!-- ════════════════════ 2. SIMULATION CONTROL STRIP ════════════════════ -->
+    <section class="bg-white rounded-lg border border-slate-200 shadow-sm p-3.5 sm:p-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 mb-3 border-b border-slate-100 gap-1">
+        <span class="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+          Operational Surge &amp; Turnover Simulation Controls
+        </span>
+        <span class="text-[11px] text-slate-400">
+          Calibrated at equilibrium (&lambda;<sub>base</sub> = N<sub>active</sub> / LOS<sub>mean</sub>) &middot; Sub-10ms reactive evaluation
+        </span>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
+        
+        <!-- Control 1: Surge Multiplier -->
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between text-xs">
+            <label for="slider-surge" class="font-medium text-slate-700">Emergency Surge Multiplier</label>
+            <span id="val-surge" class="font-mono font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-xs">
+              1.25x
+            </span>
+          </div>
+          <input id="slider-surge" type="range" min="1.00" max="2.50" step="0.05" value="1.25" oninput="onParamChange()" />
+          <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+            <span>1.00x Baseline</span>
+            <span>2.50x Catastrophic</span>
+          </div>
+        </div>
+
+        <!-- Control 2: Lead Window -->
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between text-xs">
+            <label for="slider-lead" class="font-medium text-slate-700">Simulation Lead Window</label>
+            <span id="val-lead" class="font-mono font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-xs">
+              4h
+            </span>
+          </div>
+          <input id="slider-lead" type="range" min="1" max="8" step="1" value="4" oninput="onParamChange()" />
+          <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+            <span>1h Immediate</span>
+            <span>8h Shift Lead</span>
+          </div>
+        </div>
+
+        <!-- Control 3: Early Discharge Acceleration -->
+        <div class="flex flex-col gap-1.5">
+          <div class="flex items-center justify-between text-xs">
+            <label for="slider-buf" class="font-medium text-slate-700">Early Discharge Acceleration</label>
+            <span id="val-buf" class="font-mono font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-xs">
+              +0m
+            </span>
+          </div>
+          <input id="slider-buf" type="range" min="0" max="120" step="15" value="0" oninput="onParamChange()" />
+          <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+            <span>0 min Standard</span>
+            <span>120 min Expedited</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ════════════════════ 3. EXECUTIVE KPI RIBBON ════════════════════ -->
+    <section class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+      
+      <!-- Metric 1: Total Census -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-3.5 sm:p-4 flex flex-col justify-between">
+        <span class="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+          Total Inpatient Census
+        </span>
+        <div class="my-1.5">
+          <span id="kpi-census" class="font-mono text-2xl sm:text-3xl font-bold text-slate-900">880 Beds</span>
+        </div>
+        <p class="text-[11px] text-slate-500">
+          Across <span id="kpi-unit-count" class="font-semibold text-slate-700">30</span> active units
         </p>
       </div>
-    </div>
-    <div class="flex items-center gap-4">
-      <div class="flex items-center gap-2">
-        <div class="w-2 h-2 rounded-full bg-emerald-500 pulse-live"></div>
-        <span class="text-xs font-semibold text-emerald-700">Operational Census Live</span>
-      </div>
-      <div id="ts-badge" class="hidden text-xs text-slate-400 mono border-l border-slate-200 pl-4"></div>
-      <div id="data-badge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-slate-200 bg-slate-50 text-xs font-medium text-slate-500">
-        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>SIMULATION
-      </div>
-    </div>
-  </div>
-</header>
 
-<main class="max-w-screen-2xl mx-auto px-6 py-4 space-y-4">
-
-<!-- ════════════════════ SCENARIO CONTROLS ═════════════════════════════════ -->
-<section class="bg-white rounded-lg border border-slate-200 shadow-sm p-4">
-  <div class="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-100">
-    <div>
-      <h2 class="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-        Operational Stress-Testing &amp; Capacity Simulation Controls
-      </h2>
-      <p class="text-xs text-slate-400 mt-0.5">
-        Adjust parameters to model prospective surge scenarios &mdash; all metrics recalculate in real-time.
-      </p>
-    </div>
-  </div>
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-    <!-- Slider 1: Surge Multiplier -->
-    <div>
-      <div class="flex items-center justify-between mb-2">
-        <label class="text-xs font-medium text-slate-600">Admission Surge Multiplier</label>
-        <span id="sv" class="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-xs font-bold text-blue-700 mono">1.25&times;</span>
-      </div>
-      <input id="ss" type="range" min="1.0" max="2.5" step="0.05" value="1.25" />
-      <div class="flex justify-between text-xs text-slate-400 mt-1.5">
-        <span>1.0&times; Baseline</span><span>2.5&times; Catastrophic</span>
-      </div>
-    </div>
-
-    <!-- Slider 2: Lead Window -->
-    <div>
-      <div class="flex items-center justify-between mb-2">
-        <label class="text-xs font-medium text-slate-600">Lead Evaluation Window</label>
-        <span id="lv" class="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-xs font-bold text-blue-700 mono">4 hrs</span>
-      </div>
-      <input id="ls" type="range" min="1" max="8" step="1" value="4" />
-      <div class="flex justify-between text-xs text-slate-400 mt-1.5">
-        <span>1 hr Immediate</span><span>8 hrs Extended</span>
-      </div>
-    </div>
-
-    <!-- Slider 3: Discharge Buffer -->
-    <div>
-      <div class="flex items-center justify-between mb-2">
-        <label class="text-xs font-medium text-slate-600">Discharge Processing Acceleration</label>
-        <span id="bv" class="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-xs font-bold text-blue-700 mono">0 mins</span>
-      </div>
-      <input id="bs" type="range" min="0" max="120" step="15" value="0" />
-      <div class="flex justify-between text-xs text-slate-400 mt-1.5">
-        <span>0 mins Standard</span><span>120 mins Accelerated</span>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ════════════════════ KPI RIBBON ════════════════════════════════════════ -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
-
-  <!-- KPI 1: Census -->
-  <div class="kpi-tile bg-white rounded-lg border border-slate-200 shadow-sm p-4">
-    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Inpatient Census</p>
-    <p id="kpi-census" class="text-3xl font-extrabold text-slate-900 mono mt-1 leading-none">&mdash;</p>
-    <p class="text-xs text-slate-400 mt-2">Beds Active &middot; <span id="kpi-uc" class="font-semibold text-slate-600">&mdash;</span> Units</p>
-  </div>
-
-  <!-- KPI 2: Net Deficit -->
-  <div class="kpi-tile bg-white rounded-lg border border-rose-200 shadow-sm p-4">
-    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Projected Net Deficit</p>
-    <p id="kpi-deficit" class="text-3xl font-extrabold text-rose-600 mono mt-1 leading-none">&mdash;</p>
-    <p class="text-xs text-slate-400 mt-2">Beds Short Over Lead Window</p>
-  </div>
-
-  <!-- KPI 3: Bottleneck -->
-  <div class="kpi-tile bg-white rounded-lg border border-amber-200 shadow-sm p-4">
-    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Units in Bottleneck Risk</p>
-    <p id="kpi-alerts" class="text-3xl font-extrabold text-amber-600 mono mt-1 leading-none">&mdash;</p>
-    <p class="text-xs text-slate-400 mt-2">Wards Exceeded Threshold</p>
-  </div>
-
-  <!-- KPI 4: System Occupancy -->
-  <div class="kpi-tile bg-white rounded-lg border border-blue-200 shadow-sm p-4">
-    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">System-Wide Occupancy</p>
-    <p id="kpi-occ" class="text-3xl font-extrabold text-blue-700 mono mt-1 leading-none">&mdash;</p>
-    <p class="text-xs text-slate-400 mt-2">Fleet Capacity Utilisation</p>
-  </div>
-</div>
-
-<!-- ════════════════════ CHART + SIDEBAR ═══════════════════════════════════ -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-  <!-- Chart (2/3) -->
-  <div class="lg:col-span-2 bg-white rounded-lg border border-slate-200 shadow-sm p-4">
-    <div class="flex items-center justify-between flex-wrap gap-3 mb-3 pb-2.5 border-b border-slate-100">
-      <div>
-        <h3 class="text-sm font-semibold text-slate-800">Projected Inflow vs Expected Discharges</h3>
-        <p class="text-xs text-slate-400 mt-0.5">
-          Top 12 units by deficit &middot;
-          <span id="lbl-win" class="font-mono font-semibold text-blue-600">4h</span> evaluation window
+      <!-- Metric 2: Net Fleet Deficit -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-3.5 sm:p-4 flex flex-col justify-between">
+        <span class="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+          Net Fleet Deficit (t+<span id="kpi-lead-win">4</span>h)
+        </span>
+        <div class="my-1.5">
+          <span id="kpi-deficit" class="font-mono text-2xl sm:text-3xl font-bold text-rose-800">+38.4 Beds</span>
+        </div>
+        <p class="text-[11px] text-slate-500">
+          <span id="kpi-deficit-sub" class="font-semibold text-rose-700">Projected bed shortfall</span> over window
         </p>
       </div>
-      <div class="flex items-center gap-4 text-xs text-slate-500">
-        <div class="flex items-center gap-1.5"><div class="w-3 h-2.5 rounded-sm bg-blue-600 opacity-85"></div><span>Inflow</span></div>
-        <div class="flex items-center gap-1.5"><div class="w-3 h-2.5 rounded-sm bg-teal-500 opacity-85"></div><span>Discharges</span></div>
-        <div class="flex items-center gap-1.5"><div class="w-3 h-2.5 rounded-sm bg-rose-500 opacity-85"></div><span>Critical</span></div>
-      </div>
-    </div>
-    <div class="relative" style="height:320px"><canvas id="surgeChart"></canvas></div>
-  </div>
 
-  <!-- Sidebar (1/3) -->
-  <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-4 flex flex-col gap-4">
-    <h3 class="text-sm font-semibold text-slate-800 pb-2 border-b border-slate-100">Risk Distribution</h3>
-    <div class="space-y-2">
-      <div class="flex items-center justify-between px-3 py-2.5 rounded-md bg-rose-50 border border-rose-200">
-        <div>
-          <p class="text-xs font-bold text-rose-700">CRITICAL BOTTLENECK</p>
-          <p class="text-xs text-rose-400 mt-0.5">Occupancy &ge;90% or Deficit &gt;3</p>
+      <!-- Metric 3: Units Exceeding Capacity -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-3.5 sm:p-4 flex flex-col justify-between">
+        <span class="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+          Units Exceeding Capacity
+        </span>
+        <div class="my-1.5">
+          <span id="kpi-bottlenecks" class="font-mono text-2xl sm:text-3xl font-bold text-amber-800">4 Wards</span>
         </div>
-        <span id="cnt-crit" class="text-2xl font-black mono text-rose-700">&mdash;</span>
+        <p class="text-[11px] text-slate-500">
+          Projected occupancy &ge; 90% or deficit &gt; 3
+        </p>
       </div>
-      <div class="flex items-center justify-between px-3 py-2.5 rounded-md bg-amber-50 border border-amber-200">
-        <div>
-          <p class="text-xs font-bold text-amber-700">STRAINED</p>
-          <p class="text-xs text-amber-400 mt-0.5">Occupancy 75&ndash;89%</p>
+
+      <!-- Metric 4: System Occupancy -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-3.5 sm:p-4 flex flex-col justify-between">
+        <span class="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+          System-Wide Occupancy
+        </span>
+        <div class="my-1.5">
+          <span id="kpi-occupancy" class="font-mono text-2xl sm:text-3xl font-bold text-slate-900">94.2%</span>
         </div>
-        <span id="cnt-str" class="text-2xl font-black mono text-amber-700">&mdash;</span>
+        <p class="text-[11px] text-slate-500">
+          <span id="kpi-surge-stress" class="font-semibold text-slate-700">1.25x</span> baseline arrival stress
+        </p>
       </div>
-      <div class="flex items-center justify-between px-3 py-2.5 rounded-md bg-emerald-50 border border-emerald-200">
-        <div>
-          <p class="text-xs font-bold text-emerald-700">STABLE</p>
-          <p class="text-xs text-emerald-400 mt-0.5">Occupancy &lt;75%</p>
+
+    </section>
+
+    <!-- ════════════════════ 4. PRIMARY ANALYTICS VIEW (2-COLUMN GRID) ════════════════════ -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
+      
+      <!-- Left Column (40% width): Clustered Horizontal Bar Chart -->
+      <div class="lg:col-span-5 bg-white rounded-lg border border-slate-200 shadow-sm p-4 flex flex-col">
+        
+        <div class="flex items-start justify-between pb-2.5 mb-2 border-b border-slate-100">
+          <div>
+            <h2 class="text-sm font-bold text-slate-900">Projected Inflow vs Clearance Deficit</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Top 10 constrained care units sorted by net deficit descending</p>
+          </div>
         </div>
-        <span id="cnt-stab" class="text-2xl font-black mono text-emerald-700">&mdash;</span>
+
+        <!-- Legend Bar -->
+        <div class="flex items-center gap-4 text-xs font-medium text-slate-600 mb-2">
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-sm bg-[#1E3A8A]"></span>
+            <span>Projected Inflow</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3 h-3 rounded-sm bg-[#0D9488]"></span>
+            <span>Expected Discharges</span>
+          </div>
+        </div>
+
+        <!-- Canvas container with responsive height -->
+        <div class="relative flex-1 min-h-[420px] w-full">
+          <canvas id="surgeChart"></canvas>
+        </div>
+
+        <div class="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+          <span>&Sigma; Inflow: <strong id="lbl-total-inflow" class="text-slate-700">0.0</strong></span>
+          <span>&Sigma; Discharges: <strong id="lbl-total-clear" class="text-slate-700">0.0</strong></span>
+          <span>Net: <strong id="lbl-total-def" class="text-rose-700">+0.0</strong></span>
+        </div>
+
       </div>
-    </div>
-    <div class="pt-2 border-t border-slate-100 space-y-2 mt-auto">
-      <div class="flex justify-between text-xs">
-        <span class="text-slate-500">&Sigma; Projected Inflow</span>
-        <span id="st-inflow" class="mono font-semibold text-slate-700">&mdash;</span>
+
+      <!-- Right Column (60% width): Executive Care Unit Intelligence Table -->
+      <div class="lg:col-span-7 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+        
+        <!-- Table Toolbar: Quick Tabs & Search -->
+        <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          
+          <!-- Filter Tabs -->
+          <div class="inline-flex rounded-md border border-slate-300 bg-white p-0.5 text-xs font-medium shadow-xs">
+            <button id="tab-all" onclick="setTab('ALL')" class="px-3 py-1 rounded text-slate-900 bg-slate-100 font-semibold transition">
+              All Units
+            </button>
+            <button id="tab-crit" onclick="setTab('CRITICAL')" class="px-3 py-1 rounded text-slate-600 hover:text-slate-900 transition">
+              Critical Only
+            </button>
+            <button id="tab-icu" onclick="setTab('ICU')" class="px-3 py-1 rounded text-slate-600 hover:text-slate-900 transition">
+              ICU Wards
+            </button>
+          </div>
+
+          <!-- Search Bar -->
+          <div class="relative w-full sm:w-56">
+            <input id="input-search" type="text" placeholder="Filter department..." oninput="onSearchChange()"
+              class="w-full text-xs pl-8 pr-3 py-1.5 rounded border border-slate-300 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500" />
+            <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+          </div>
+
+        </div>
+
+        <!-- Scrollable Table -->
+        <div class="table-container flex-1 overflow-x-auto overflow-y-auto max-h-[500px]">
+          <table class="w-full text-left border-collapse">
+            <thead class="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
+              <tr>
+                <th class="py-2.5 px-3.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Care Unit</th>
+                <th class="py-2.5 px-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right">Active Census</th>
+                <th class="py-2.5 px-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right">Mean LOS</th>
+                <th class="py-2.5 px-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right">Projected Inflow</th>
+                <th class="py-2.5 px-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right">Clearances</th>
+                <th class="py-2.5 px-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right">Net Deficit</th>
+                <th class="py-2.5 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right min-w-[130px]">Projected Occupancy</th>
+                <th class="py-2.5 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Risk Tier</th>
+              </tr>
+            </thead>
+            <tbody id="table-body" class="divide-y divide-slate-100 text-xs">
+              <!-- Dynamically populated rows -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Table Summary Footer -->
+        <div class="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+          <span id="lbl-table-count">Showing 30 of 30 units</span>
+          <span>Occupancy = (Census + Deficit) / Capacity &middot; Monospace Tabular Nums</span>
+        </div>
+
       </div>
-      <div class="flex justify-between text-xs">
-        <span class="text-slate-500">&Sigma; Expected Clearances</span>
-        <span id="st-clear" class="mono font-semibold text-slate-700">&mdash;</span>
-      </div>
-      <div class="flex justify-between text-xs">
-        <span class="text-slate-500">Weighted Avg. Occupancy</span>
-        <span id="st-occ" class="mono font-semibold text-blue-700">&mdash;</span>
-      </div>
-      <div class="flex justify-between text-xs">
-        <span class="text-slate-500">ED &lambda;_surge (/hr)</span>
-        <span id="st-edl" class="mono font-semibold text-slate-700">&mdash;</span>
-      </div>
-    </div>
-  </div>
-</div>
 
-<!-- ════════════════════ RISK TABLE ════════════════════════════════════════ -->
-<section class="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden mb-16">
-  <!-- Table Header Bar -->
-  <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between flex-wrap gap-3">
-    <div>
-      <h3 class="text-sm font-semibold text-slate-800">Department Capacity Risk Register</h3>
-      <p class="text-xs text-slate-400 mt-0.5">Filterable &middot; Searchable &middot; Sorted by worst surge deficit</p>
-    </div>
-    <div class="flex items-center gap-2 flex-wrap">
-      <div class="flex items-center border border-slate-200 rounded-md overflow-hidden text-xs divide-x divide-slate-200">
-        <button onclick="setFilter('')"                     id="fb-all"  class="fbtn px-3 py-1.5 font-medium text-slate-600 bg-white">All Units</button>
-        <button onclick="setFilter('CRITICAL_BOTTLENECK')" id="fb-crit" class="fbtn px-3 py-1.5 font-medium text-slate-500 bg-white">Critical</button>
-        <button onclick="setFilter('STRAINED')"            id="fb-str"  class="fbtn px-3 py-1.5 font-medium text-slate-500 bg-white">Strained</button>
-        <button onclick="setFilter('STABLE')"              id="fb-stab" class="fbtn px-3 py-1.5 font-medium text-slate-500 bg-white">Stable</button>
-      </div>
-      <input id="srch" type="text" placeholder="Search unit..." oninput="renderTable()"
-             class="px-3 py-1.5 text-xs rounded-md border border-slate-200 text-slate-700 placeholder-slate-400 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 w-36" />
-    </div>
-  </div>
+    </section>
 
-  <!-- Table -->
-  <div class="tbl-scroll overflow-x-auto">
-    <table class="w-full text-xs border-collapse">
-      <thead class="sticky top-0 bg-slate-50 border-b border-slate-200 z-10">
-        <tr>
-          <th class="text-left px-4 py-2.5 text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">Care Unit</th>
-          <th class="text-right px-4 py-2.5 text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">Census</th>
-          <th class="text-right px-4 py-2.5 text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">Eff. LOS (h)</th>
-          <th class="text-right px-4 py-2.5 text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">Inflow (kh)</th>
-          <th class="text-right px-4 py-2.5 text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">Clearances</th>
-          <th class="text-right px-4 py-2.5 text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">Net Deficit</th>
-          <th class="text-right px-4 py-2.5 text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap" style="min-width:110px">Occupancy %</th>
-          <th class="text-center px-4 py-2.5 text-slate-500 font-semibold uppercase tracking-wider whitespace-nowrap">Status</th>
-        </tr>
-      </thead>
-      <tbody id="tbl-body" class="divide-y divide-slate-100"></tbody>
-    </table>
-  </div>
+  </main>
 
-  <!-- Table Footer -->
-  <div class="px-4 py-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
-    <span id="tbl-count">&#x2014; rows displayed</span>
-    <span class="mono">kh = within <span id="lbl-kh" class="text-blue-600 font-semibold">4h</span> lead window</span>
-  </div>
-</section>
+  <!-- ════════════════════ JAVASCRIPT ENGINE ════════════════════ -->
+  <script>
+    // ── Preloaded baseline data ──────────────────────────────────────────────
+    var SEED_DATA = {
+      generated_at: "2026-09-19T17:36:19.726196+00:00Z",
+      pipeline_version: "phase_2_surge_simulator",
+      surge_config: { default_surge_multiplier: 1.25, default_lead_hours: 4, standard_target_occupancy: 0.85 },
+      units: [
+        { care_unit: "EMERGENCY DEPARTMENT", active_patients: 182, baseline_hourly_inflow: 21.2533, mean_los_hours: 8.5634, licensed_capacity: 215 },
+        { care_unit: "EMERGENCY DEPARTMENT OBSERVATION", active_patients: 26, baseline_hourly_inflow: 10.6921, mean_los_hours: 2.4317, licensed_capacity: 31 },
+        { care_unit: "PACU", active_patients: 25, baseline_hourly_inflow: 4.1988, mean_los_hours: 5.9540, licensed_capacity: 30 },
+        { care_unit: "DISCHARGE LOUNGE", active_patients: 36, baseline_hourly_inflow: 3.9008, mean_los_hours: 9.2290, licensed_capacity: 43 },
+        { care_unit: "MEDICINE", active_patients: 77, baseline_hourly_inflow: 0.9739, mean_los_hours: 79.0657, licensed_capacity: 91 },
+        { care_unit: "CARDIAC VASCULAR INTENSIVE CARE UNIT (CVICU)", active_patients: 31, baseline_hourly_inflow: 0.7988, mean_los_hours: 38.8074, licensed_capacity: 37 },
+        { care_unit: "NEUROLOGY", active_patients: 46, baseline_hourly_inflow: 0.7732, mean_los_hours: 59.4910, licensed_capacity: 55 },
+        { care_unit: "MEDICINE/CARDIOLOGY", active_patients: 43, baseline_hourly_inflow: 0.7293, mean_los_hours: 58.9642, licensed_capacity: 51 },
+        { care_unit: "MED/SURG", active_patients: 48, baseline_hourly_inflow: 0.7440, mean_los_hours: 64.5193, licensed_capacity: 57 },
+        { care_unit: "CARDIAC SURGERY", active_patients: 39, baseline_hourly_inflow: 0.6905, mean_los_hours: 56.4819, licensed_capacity: 46 },
+        { care_unit: "SURGICAL INTENSIVE CARE UNIT (SICU)", active_patients: 33, baseline_hourly_inflow: 0.6075, mean_los_hours: 54.3199, licensed_capacity: 39 },
+        { care_unit: "MEDICAL INTENSIVE CARE UNIT (MICU)", active_patients: 36, baseline_hourly_inflow: 0.4333, mean_los_hours: 83.0923, licensed_capacity: 43 },
+        { care_unit: "TRANSPLANT", active_patients: 39, baseline_hourly_inflow: 0.4075, mean_los_hours: 95.6974, licensed_capacity: 46 },
+        { care_unit: "MEDICAL/SURGICAL INTENSIVE CARE UNIT (MICU/SICU)", active_patients: 32, baseline_hourly_inflow: 0.3778, mean_los_hours: 84.6902, licensed_capacity: 38 },
+        { care_unit: "MED/SURG/TRAUMA", active_patients: 25, baseline_hourly_inflow: 0.3350, mean_los_hours: 74.6347, licensed_capacity: 30 },
+        { care_unit: "MED/SURG/GYN", active_patients: 13, baseline_hourly_inflow: 0.2845, mean_los_hours: 45.6923, licensed_capacity: 16 },
+        { care_unit: "TRAUMA SICU (TSICU)", active_patients: 20, baseline_hourly_inflow: 0.2497, mean_los_hours: 80.0988, licensed_capacity: 24 },
+        { care_unit: "HEMATOLOGY/ONCOLOGY INTERMEDIATE", active_patients: 23, baseline_hourly_inflow: 0.2583, mean_los_hours: 89.0282, licensed_capacity: 28 },
+        { care_unit: "OBSERVATION", active_patients: 2, baseline_hourly_inflow: 0.1686, mean_los_hours: 11.8651, licensed_capacity: 4 },
+        { care_unit: "HEMATOLOGY/ONCOLOGY", active_patients: 31, baseline_hourly_inflow: 0.2452, mean_los_hours: 126.4486, licensed_capacity: 37 },
+        { care_unit: "VASCULAR", active_patients: 20, baseline_hourly_inflow: 0.1903, mean_los_hours: 105.0922, licensed_capacity: 24 },
+        { care_unit: "CORONARY CARE UNIT (CCU)", active_patients: 16, baseline_hourly_inflow: 0.1667, mean_los_hours: 95.9990, licensed_capacity: 19 },
+        { care_unit: "SURGERY/TRAUMA", active_patients: 3, baseline_hourly_inflow: 0.0753, mean_los_hours: 39.8150, licensed_capacity: 5 },
+        { care_unit: "NEURO INTERMEDIATE", active_patients: 1, baseline_hourly_inflow: 0.0477, mean_los_hours: 20.9444, licensed_capacity: 3 },
+        { care_unit: "CARDIOLOGY", active_patients: 1, baseline_hourly_inflow: 0.0438, mean_los_hours: 22.8281, licensed_capacity: 3 },
+        { care_unit: "NEURO SURGICAL INTENSIVE CARE UNIT (NEURO SICU)", active_patients: 4, baseline_hourly_inflow: 0.0509, mean_los_hours: 78.6626, licensed_capacity: 6 },
+        { care_unit: "NEURO STEPDOWN", active_patients: 3, baseline_hourly_inflow: 0.0466, mean_los_hours: 64.3496, licensed_capacity: 5 },
+        { care_unit: "CARDIOLOGY SURGERY INTERMEDIATE", active_patients: 1, baseline_hourly_inflow: 0.0260, mean_los_hours: 38.4233, licensed_capacity: 3 },
+        { care_unit: "PSYCHIATRY", active_patients: 3, baseline_hourly_inflow: 0.0153, mean_los_hours: 195.8491, licensed_capacity: 5 },
+        { care_unit: "MEDICINE/CARDIOLOGY INTERMEDIATE", active_patients: 1, baseline_hourly_inflow: 0.0030, mean_los_hours: 332.2114, licensed_capacity: 3 }
+      ]
+    };
 
-</main>
+    // ── Application State ────────────────────────────────────────────────────
+    var state = {
+      rawUnits: SEED_DATA.units,
+      simulated: [],
+      currentTab: 'ALL', // 'ALL', 'CRITICAL', 'ICU'
+      searchQuery: '',
+      surgeChart: null
+    };
 
-<!-- ════════════════════ EXPORT BUTTON ════════════════════════════════════ -->
-<div class="fixed bottom-5 right-5 z-50">
-  <button onclick="exportCSV()" class="exp-btn inline-flex items-center gap-2 px-4 py-2.5 bg-blue-700 text-white text-xs font-semibold rounded-md shadow-lg border border-blue-800">
-    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-    </svg>
-    Export Scenario CSV
-  </button>
-</div>
+    // ── Dynamic Simulation Math Engine ───────────────────────────────────────
+    function runSimulation() {
+      var S = parseFloat(document.getElementById('slider-surge').value);
+      var lead = parseInt(document.getElementById('slider-lead').value, 10);
+      var bufMins = parseFloat(document.getElementById('slider-buf').value);
+      var bufH = bufMins / 60.0;
 
-<!-- ════════════════════ JAVASCRIPT ════════════════════════════════════════ -->
-<script>
-// ── Seed data ───────────────────────────────────────────────────────────────
-var SEED = {
-  generated_at: "2026-09-19T16:47:17.000Z",
-  pipeline_version: "phase_2_surge_simulator",
-  surge_config: { default_surge_multiplier: 1.25, default_lead_hours: 4, standard_target_occupancy: 0.85 },
-  units: [
-    {care_unit:"EMERGENCY DEPARTMENT",                  active_patients:173,baseline_hourly_inflow:21.254,mean_los_hours:8.14, licensed_capacity:204},
-    {care_unit:"EMERGENCY DEPARTMENT OBSERVATION",       active_patients:86, baseline_hourly_inflow:10.692,mean_los_hours:8.04, licensed_capacity:102},
-    {care_unit:"PACU",                                   active_patients:34, baseline_hourly_inflow:4.198, mean_los_hours:8.1,  licensed_capacity:41},
-    {care_unit:"DISCHARGE LOUNGE",                       active_patients:32, baseline_hourly_inflow:3.9,   mean_los_hours:8.21, licensed_capacity:38},
-    {care_unit:"MEDICINE",                               active_patients:62, baseline_hourly_inflow:0.974, mean_los_hours:63.68,licensed_capacity:73},
-    {care_unit:"CARDIAC VASCULAR ICU (CVICU)",           active_patients:51, baseline_hourly_inflow:0.798, mean_los_hours:63.91,licensed_capacity:61},
-    {care_unit:"NEUROLOGY",                              active_patients:50, baseline_hourly_inflow:0.774, mean_los_hours:64.6, licensed_capacity:59},
-    {care_unit:"MEDICINE/CARDIOLOGY",                    active_patients:47, baseline_hourly_inflow:0.73,  mean_los_hours:64.38,licensed_capacity:56},
-    {care_unit:"MED/SURG",                               active_patients:48, baseline_hourly_inflow:0.744, mean_los_hours:64.52,licensed_capacity:57},
-    {care_unit:"CARDIAC SURGERY",                        active_patients:44, baseline_hourly_inflow:0.69,  mean_los_hours:63.77,licensed_capacity:52},
-    {care_unit:"SURGICAL ICU (SICU)",                    active_patients:39, baseline_hourly_inflow:0.609, mean_los_hours:64.04,licensed_capacity:46},
-    {care_unit:"MEDICAL ICU (MICU)",                     active_patients:28, baseline_hourly_inflow:0.435, mean_los_hours:64.37,licensed_capacity:33},
-    {care_unit:"TRANSPLANT",                             active_patients:26, baseline_hourly_inflow:0.407, mean_los_hours:63.88,licensed_capacity:31},
-    {care_unit:"MEDICAL/SURGICAL ICU (MICU/SICU)",       active_patients:24, baseline_hourly_inflow:0.378, mean_los_hours:63.49,licensed_capacity:29},
-    {care_unit:"MED/SURG/TRAUMA",                        active_patients:21, baseline_hourly_inflow:0.334, mean_los_hours:62.87,licensed_capacity:25},
-    {care_unit:"MED/SURG/GYN",                           active_patients:18, baseline_hourly_inflow:0.284, mean_los_hours:63.38,licensed_capacity:22},
-    {care_unit:"TRAUMA SICU (TSICU)",                    active_patients:16, baseline_hourly_inflow:0.25,  mean_los_hours:64.0, licensed_capacity:19},
-    {care_unit:"HEMATOLOGY/ONCOLOGY INTERMEDIATE",       active_patients:16, baseline_hourly_inflow:0.258, mean_los_hours:62.02,licensed_capacity:19},
-    {care_unit:"HEMATOLOGY/ONCOLOGY",                    active_patients:16, baseline_hourly_inflow:0.246, mean_los_hours:65.04,licensed_capacity:19},
-    {care_unit:"VASCULAR",                               active_patients:12, baseline_hourly_inflow:0.19,  mean_los_hours:63.16,licensed_capacity:15},
-    {care_unit:"CORONARY CARE UNIT (CCU)",               active_patients:11, baseline_hourly_inflow:0.167, mean_los_hours:65.87,licensed_capacity:13},
-    {care_unit:"OBSERVATION",                            active_patients:5,  baseline_hourly_inflow:0.168, mean_los_hours:29.76,licensed_capacity:8},
-    {care_unit:"SURGERY/TRAUMA",                         active_patients:5,  baseline_hourly_inflow:0.076, mean_los_hours:65.79,licensed_capacity:8},
-    {care_unit:"NEURO INTERMEDIATE",                     active_patients:3,  baseline_hourly_inflow:0.048, mean_los_hours:62.5, licensed_capacity:6},
-    {care_unit:"CARDIOLOGY",                             active_patients:3,  baseline_hourly_inflow:0.045, mean_los_hours:66.67,licensed_capacity:6},
-    {care_unit:"NEURO SURGICAL ICU (NSICU)",             active_patients:3,  baseline_hourly_inflow:0.05,  mean_los_hours:60.0, licensed_capacity:6},
-    {care_unit:"NEURO STEPDOWN",                         active_patients:3,  baseline_hourly_inflow:0.046, mean_los_hours:65.22,licensed_capacity:6},
-    {care_unit:"CARDIOLOGY SURGERY INTERMEDIATE",        active_patients:2,  baseline_hourly_inflow:0.026, mean_los_hours:76.92,licensed_capacity:5},
-    {care_unit:"PSYCHIATRY",                             active_patients:1,  baseline_hourly_inflow:0.016, mean_los_hours:62.5, licensed_capacity:4},
-    {care_unit:"MEDICINE/CARDIOLOGY INTERMEDIATE",       active_patients:1,  baseline_hourly_inflow:0.005, mean_los_hours:200.0,licensed_capacity:4}
-  ]
-};
+      // Update Slider Label Chips
+      document.getElementById('val-surge').textContent = S.toFixed(2) + 'x';
+      document.getElementById('val-lead').textContent = lead + 'h';
+      document.getElementById('val-buf').textContent = (bufMins >= 0 ? '+' : '') + bufMins + 'm';
+      document.getElementById('kpi-lead-win').textContent = lead;
+      document.getElementById('kpi-surge-stress').textContent = S.toFixed(2) + 'x';
 
-// ── State ────────────────────────────────────────────────────────────────────
-var baseline     = null;
-var computed     = [];
-var activeFilter = "";
-var surgeChart   = null;
-var CHART_N      = 12;
+      state.simulated = state.rawUnits.map(function(unit) {
+        var meanLos = Math.max(unit.mean_los_hours, 0.5);
+        // lambda_surge = lambda_base * SurgeMultiplier
+        var lambdaSurge = unit.baseline_hourly_inflow * S;
+        // Inflow = lambda_surge * LeadWindow
+        var inflow = lambdaSurge * lead;
+        
+        // Clearance = N_active * (1 - e^{-(LeadWindow + DischargeBuffer/60) / LOS_mean})
+        var pClearance = 1.0 - Math.exp(-(lead + bufH) / meanLos);
+        var clearances = unit.active_patients * pClearance;
+        
+        // Deficit = Inflow - Clearance
+        var deficit = inflow - clearances;
+        
+        // Projected Bed Occupancy
+        var occPct = ((unit.active_patients + deficit) / unit.licensed_capacity) * 100.0;
+        
+        // Risk Classification
+        var tier = "STABLE";
+        if (occPct >= 90.0 || deficit > 3.0) {
+          tier = "CRITICAL";
+        } else if (occPct >= 75.0) {
+          tier = "STRAINED";
+        }
 
-var ss = document.getElementById("ss");
-var ls = document.getElementById("ls");
-var bs = document.getElementById("bs");
+        var isICU = /ICU|INTENSIVE|PACU|CVICU|SICU|MICU|TSICU/i.test(unit.care_unit);
 
-// ── Data loading ─────────────────────────────────────────────────────────────
-async function loadData() {
-  try {
-    var res = await fetch("./public/simulation_baseline.json");
-    if (!res.ok) throw new Error("not found");
-    baseline = await res.json();
-    var badge = document.getElementById("data-badge");
-    badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block"></span>PIPELINE DATA';
-  } catch(e) { baseline = SEED; }
-  var ts = document.getElementById("ts-badge");
-  ts.textContent = new Date(baseline.generated_at).toLocaleString();
-  ts.classList.remove("hidden");
-  update();
-}
+        return {
+          care_unit: unit.care_unit,
+          active_patients: unit.active_patients,
+          mean_los_hours: unit.mean_los_hours,
+          licensed_capacity: unit.licensed_capacity,
+          inflow: inflow,
+          clearances: clearances,
+          deficit: deficit,
+          occupancy: occPct,
+          tier: tier,
+          isICU: isICU
+        };
+      });
 
-// ── Surge math ───────────────────────────────────────────────────────────────
-function compute(unit, S, k, bufMins) {
-  var bufH       = bufMins / 60;
-  var effLOS     = Math.max(unit.mean_los_hours - bufH, 0.5);
-  var lSurge     = unit.baseline_hourly_inflow * S;
-  var inflow     = lSurge * k;
-  var pDisch     = 1 - Math.exp(-k / effLOS);
-  var discharges = unit.active_patients * pDisch;
-  var deficit    = inflow - discharges;
-  var occ        = (unit.active_patients + deficit) / unit.licensed_capacity * 100;
-  var tier;
-  if (occ >= 90 || deficit > 3)  tier = "CRITICAL_BOTTLENECK";
-  else if (occ >= 75)             tier = "STRAINED";
-  else                            tier = "STABLE";
-  return Object.assign({}, unit, {
-    effLOS: effLOS, lSurge: lSurge, inflow: inflow,
-    discharges: discharges, deficit: deficit, occ: occ,
-    tier: tier, alert: tier === "CRITICAL_BOTTLENECK"
-  });
-}
+      // Sort descending by deficit (worst bottleneck first)
+      state.simulated.sort(function(a, b) { return b.deficit - a.deficit; });
 
-// ── Master update ────────────────────────────────────────────────────────────
-function update() {
-  var S   = parseFloat(ss.value);
-  var k   = parseInt(ls.value);
-  var buf = parseFloat(bs.value);
+      updateKPIs();
+      updateChart();
+      renderTable();
+    }
 
-  document.getElementById("sv").textContent  = S.toFixed(2) + "\u00D7";
-  document.getElementById("lv").textContent  = k + " hrs";
-  document.getElementById("bv").textContent  = buf + " mins";
-  document.getElementById("lbl-win").textContent = k + "h";
-  document.getElementById("lbl-kh").textContent  = k + "h";
+    // ── Update KPI Ribbon ───────────────────────────────────────────────────
+    function updateKPIs() {
+      var totalCensus = 0;
+      var totalDeficit = 0;
+      var criticalCount = 0;
+      var totalWeightedOcc = 0;
+      var totalInflow = 0;
+      var totalClearances = 0;
 
-  computed = baseline.units.map(function(u){ return compute(u, S, k, buf); });
-  computed.sort(function(a,b){ return b.deficit - a.deficit; });
-
-  updateKPIs();
-  updateChart(k);
-  renderTable();
-}
-
-// ── KPI cards ────────────────────────────────────────────────────────────────
-function animNum(id, target, dec, prefix) {
-  var el   = document.getElementById(id);
-  var from = parseFloat((el.textContent || "0").replace(/[^0-9.\-]/g,"")) || 0;
-  var t0   = performance.now(); var dur = 300;
-  (function tick(now) {
-    var p = Math.min((now-t0)/dur,1);
-    var v = from + (target-from)*(1-Math.pow(1-p,3));
-    el.textContent = (prefix||"")+(dec===0?Math.round(v).toLocaleString():v.toFixed(dec));
-    if(p<1) requestAnimationFrame(tick);
-  })(t0);
-}
-
-function updateKPIs() {
-  var census   = computed.reduce(function(s,r){return s+r.active_patients;},0);
-  var deficit  = computed.reduce(function(s,r){return s+r.deficit;},0);
-  var crit     = computed.filter(function(r){return r.tier==="CRITICAL_BOTTLENECK";}).length;
-  var strain   = computed.filter(function(r){return r.tier==="STRAINED";}).length;
-  var stable   = computed.filter(function(r){return r.tier==="STABLE";}).length;
-  var tInflow  = computed.reduce(function(s,r){return s+r.inflow;},0);
-  var tClear   = computed.reduce(function(s,r){return s+r.discharges;},0);
-  // Weighted mean occupancy by census
-  var wOcc     = computed.reduce(function(s,r){return s+r.occ*r.active_patients;},0) / (census||1);
-  var ed = computed.find(function(r){
-    return r.care_unit.toUpperCase().indexOf("EMERGENCY DEPARTMENT")!==-1 &&
-           r.care_unit.toUpperCase().indexOf("OBS")===-1;
-  });
-
-  animNum("kpi-census",  census,  0);
-  animNum("kpi-deficit", deficit, 1, "+");
-  document.getElementById("kpi-alerts").textContent = crit;
-  document.getElementById("kpi-occ").textContent    = wOcc.toFixed(1)+"%";
-  document.getElementById("kpi-uc").textContent     = computed.length;
-  document.getElementById("cnt-crit").textContent   = crit;
-  document.getElementById("cnt-str").textContent    = strain;
-  document.getElementById("cnt-stab").textContent   = stable;
-  document.getElementById("st-inflow").textContent  = tInflow.toFixed(1);
-  document.getElementById("st-clear").textContent   = tClear.toFixed(1);
-  document.getElementById("st-occ").textContent     = wOcc.toFixed(1)+"%";
-  document.getElementById("st-edl").textContent     = ed ? ed.lSurge.toFixed(2) : "N/A";
-}
-
-// ── Chart ─────────────────────────────────────────────────────────────────────
-function tierColor(tier, alpha) {
-  if(tier==="CRITICAL_BOTTLENECK") return "rgba(225,29,72,"+alpha+")";
-  if(tier==="STRAINED")            return "rgba(217,119,6,"+alpha+")";
-  return "rgba(37,99,235,"+alpha+")";
-}
-
-function updateChart(k) {
-  var top     = computed.slice(0, CHART_N);
-  var labels  = top.map(function(r){ return r.care_unit.length>26?r.care_unit.slice(0,24)+"\u2026":r.care_unit; });
-  var inflows = top.map(function(r){ return +r.inflow.toFixed(2); });
-  var clears  = top.map(function(r){ return +r.discharges.toFixed(2); });
-  var barBg   = top.map(function(r){ return tierColor(r.tier, 0.82); });
-  var barBdr  = top.map(function(r){ return tierColor(r.tier, 1.0); });
-
-  if(surgeChart) {
-    surgeChart.data.labels = labels;
-    surgeChart.data.datasets[0].data = inflows;
-    surgeChart.data.datasets[0].backgroundColor = barBg;
-    surgeChart.data.datasets[0].borderColor = barBdr;
-    surgeChart.data.datasets[1].data = clears;
-    surgeChart.update("active");
-  } else {
-    var ctx = document.getElementById("surgeChart").getContext("2d");
-    surgeChart = new Chart(ctx, {
-      type:"bar",
-      data:{
-        labels:labels,
-        datasets:[
-          {
-            label:"Projected Inflow",
-            data:inflows,
-            backgroundColor:barBg,
-            borderColor:barBdr,
-            borderWidth:1,
-            borderRadius:3,
-            borderSkipped:false
-          },
-          {
-            label:"Expected Discharges",
-            data:clears,
-            backgroundColor:"rgba(20,184,166,0.75)",
-            borderColor:"rgba(15,118,110,1)",
-            borderWidth:1,
-            borderRadius:3,
-            borderSkipped:false
-          }
-        ]
-      },
-      options:{
-        indexAxis:"y",
-        responsive:true,
-        maintainAspectRatio:false,
-        animation:{duration:260},
-        interaction:{mode:"index",intersect:false},
-        plugins:{
-          legend:{display:false},
-          tooltip:{
-            backgroundColor:"#1e293b",
-            borderColor:"#334155",
-            borderWidth:1,
-            titleColor:"#f1f5f9",
-            bodyColor:"#94a3b8",
-            padding:10,
-            callbacks:{
-              afterBody:function(ctxArr){
-                var i=ctxArr[0].dataIndex; var u=top[i];
-                return [
-                  "Net Deficit : "+(u.deficit>=0?"+":"")+u.deficit.toFixed(2)+" beds",
-                  "Occupancy   : "+u.occ.toFixed(1)+"%",
-                  "Risk Status : "+u.tier.replace("_"," ")
-                ];
-              }
-            }
-          }
-        },
-        scales:{
-          x:{
-            grid:{ color:"rgba(148,163,184,0.15)", lineWidth:1 },
-            border:{ dash:[3,3] },
-            ticks:{ color:"#94a3b8", font:{size:10,family:"JetBrains Mono"} }
-          },
-          y:{
-            grid:{ display:false },
-            ticks:{ color:"#475569", font:{size:10,family:"Inter"} }
-          }
+      for (var i = 0; i < state.simulated.length; i++) {
+        var u = state.simulated[i];
+        totalCensus += u.active_patients;
+        totalDeficit += u.deficit;
+        totalInflow += u.inflow;
+        totalClearances += u.clearances;
+        totalWeightedOcc += (u.occupancy * u.active_patients);
+        if (u.tier === 'CRITICAL') {
+          criticalCount++;
         }
       }
-    });
-  }
-}
 
-// ── Filter buttons ─────────────────────────────────────────────────────────────
-function setFilter(f) {
-  activeFilter = f;
-  var map = {"":"fb-all","CRITICAL_BOTTLENECK":"fb-crit","STRAINED":"fb-str","STABLE":"fb-stab"};
-  var styles = {
-    "fb-all":  {bg:"#1e3a8a",color:"#fff"},
-    "fb-crit": {bg:"#fff1f2",color:"#be123c"},
-    "fb-str":  {bg:"#fffbeb",color:"#b45309"},
-    "fb-stab": {bg:"#f0fdf4",color:"#15803d"}
-  };
-  // Reset all
-  Object.values(map).forEach(function(id){
-    var el=document.getElementById(id);
-    el.style.background="";el.style.color="#64748b";el.style.fontWeight="500";
-  });
-  // Activate
-  var targetId = map[f];
-  var el = document.getElementById(targetId);
-  if(el) {
-    el.style.background = styles[targetId].bg;
-    el.style.color      = styles[targetId].color;
-    el.style.fontWeight = "700";
-  }
-  renderTable();
-}
+      var avgOccupancy = totalCensus > 0 ? (totalWeightedOcc / totalCensus) : 0;
 
-// ── Table ─────────────────────────────────────────────────────────────────────
-function renderTable() {
-  var q = (document.getElementById("srch").value||"").toLowerCase();
-  var rows = computed.filter(function(r){
-    return (!activeFilter||r.tier===activeFilter)&&(!q||r.care_unit.toLowerCase().indexOf(q)!==-1);
-  });
-  var tbody = document.getElementById("tbl-body");
-  tbody.innerHTML = "";
-  rows.forEach(function(r,idx) {
-    var dc = r.deficit>3?"#be123c":r.deficit>0?"#b45309":"#15803d";
-    var oc = r.occ>=90?"#be123c":r.occ>=75?"#b45309":"#15803d";
-    var barFill = r.occ>=90?"#e11d48":r.occ>=75?"#d97706":"#10b981";
-    var barW    = Math.round(Math.min(r.occ,150)/150*100);
-    var badge, badgeCls;
-    if(r.tier==="CRITICAL_BOTTLENECK"){badge="Critical";badgeCls="badge-crit";}
-    else if(r.tier==="STRAINED")      {badge="Strained";badgeCls="badge-strain";}
-    else                              {badge="Stable";  badgeCls="badge-stable";}
-    var rowBg = idx%2===0?"#ffffff":"#f8fafc";
-    var tr = document.createElement("tr");
-    tr.className = "trow";
-    tr.style.background = rowBg;
-    tr.innerHTML =
-      '<td class="px-4 py-2.5 text-slate-700 font-medium">'+r.care_unit+'</td>'+
-      '<td class="px-4 py-2.5 text-right mono text-slate-600">'+r.active_patients+'</td>'+
-      '<td class="px-4 py-2.5 text-right mono text-slate-500">'+r.effLOS.toFixed(1)+'h</td>'+
-      '<td class="px-4 py-2.5 text-right mono font-semibold text-blue-700">'+r.inflow.toFixed(2)+'</td>'+
-      '<td class="px-4 py-2.5 text-right mono font-semibold text-teal-700">'+r.discharges.toFixed(2)+'</td>'+
-      '<td class="px-4 py-2.5 text-right mono font-bold" style="color:'+dc+'">'+(r.deficit>=0?"+":"")+r.deficit.toFixed(2)+'</td>'+
-      '<td class="px-4 py-2.5 text-right" style="min-width:110px">'+
-        '<div class="flex items-center justify-end gap-2">'+
-          '<div class="occ-track w-16"><div class="occ-fill" style="width:'+barW+'%;background:'+barFill+'"></div></div>'+
-          '<span class="mono font-bold text-xs w-12 text-right" style="color:'+oc+'">'+r.occ.toFixed(1)+'%</span>'+
-        '</div>'+
-      '</td>'+
-      '<td class="px-4 py-2.5 text-center">'+
-        '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold '+badgeCls+'">'+badge+'</span>'+
-      '</td>';
-    tbody.appendChild(tr);
-  });
-  document.getElementById("tbl-count").textContent = rows.length+" of "+computed.length+" units";
-}
+      document.getElementById('kpi-census').textContent = totalCensus.toLocaleString() + ' Beds';
+      document.getElementById('kpi-unit-count').textContent = state.simulated.length;
+      
+      var deficitEl = document.getElementById('kpi-deficit');
+      var deficitSubEl = document.getElementById('kpi-deficit-sub');
+      var formattedDeficit = (totalDeficit >= 0 ? '+' : '') + totalDeficit.toFixed(1) + ' Beds';
+      deficitEl.textContent = formattedDeficit;
+      if (totalDeficit > 0) {
+        deficitEl.className = "font-mono text-2xl sm:text-3xl font-bold text-rose-800";
+        deficitSubEl.className = "font-semibold text-rose-700";
+        deficitSubEl.textContent = "Projected bed shortfall";
+      } else {
+        deficitEl.className = "font-mono text-2xl sm:text-3xl font-bold text-emerald-800";
+        deficitSubEl.className = "font-semibold text-emerald-700";
+        deficitSubEl.textContent = "Sufficient buffer headroom";
+      }
 
-// ── CSV export ─────────────────────────────────────────────────────────────────
-function exportCSV() {
-  var S=parseFloat(ss.value), k=parseInt(ls.value), buf=parseFloat(bs.value);
-  var hdrs = ["care_unit","active_patients","mean_los_hours","baseline_hourly_inflow",
-              "surge_multiplier","lead_window_hours","discharge_buffer_mins","effective_los_hours",
-              "lambda_surge_per_hour","projected_inflow","expected_discharges","surge_deficit",
-              "projected_occupancy_pct","operational_risk_tier","governance_alert_flag"];
-  var bodyRows = computed.map(function(r){
-    return ['"'+r.care_unit.replace(/"/g,'""')+'"',r.active_patients,r.mean_los_hours.toFixed(2),
-            r.baseline_hourly_inflow.toFixed(4),S.toFixed(2),k,buf,r.effLOS.toFixed(2),
-            r.lSurge.toFixed(4),r.inflow.toFixed(2),r.discharges.toFixed(2),r.deficit.toFixed(2),
-            r.occ.toFixed(2),r.tier,r.alert].join(",");
-  });
-  var csv  = [hdrs.join(",")].concat(bodyRows).join("\n");
-  var blob = new Blob([csv],{type:"text/csv;charset=utf-8;"});
-  var url  = URL.createObjectURL(blob);
-  var a    = document.createElement("a");
-  a.href=url;
-  a.download="capacity_scenario_S"+S.toFixed(2)+"_k"+k+"h_buf"+buf+"min_"+new Date().toISOString().slice(0,10)+".csv";
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
+      document.getElementById('kpi-bottlenecks').textContent = criticalCount + ' Wards';
+      document.getElementById('kpi-occupancy').textContent = avgOccupancy.toFixed(1) + '%';
 
-// ── Init ───────────────────────────────────────────────────────────────────────
-ss.addEventListener("input", update);
-ls.addEventListener("input", update);
-bs.addEventListener("input", update);
-setFilter("");   // set "All" as active by default
-loadData();
-</script>
+      document.getElementById('lbl-total-inflow').textContent = totalInflow.toFixed(1);
+      document.getElementById('lbl-total-clear').textContent = totalClearances.toFixed(1);
+      var totalDefEl = document.getElementById('lbl-total-def');
+      totalDefEl.textContent = (totalDeficit >= 0 ? '+' : '') + totalDeficit.toFixed(1);
+      totalDefEl.className = totalDeficit > 0 ? "text-rose-700 font-bold" : "text-emerald-700 font-bold";
+    }
+
+    // ── Clustered Horizontal Bar Chart (Chart.js) ───────────────────────────
+    function initOrUpdateChart() {
+      var top10 = state.simulated.slice(0, 10);
+      var labels = top10.map(function(u) {
+        return u.care_unit.length > 22 ? u.care_unit.slice(0, 20) + '…' : u.care_unit;
+      });
+      var inflowData = top10.map(function(u) { return parseFloat(u.inflow.toFixed(1)); });
+      var clearanceData = top10.map(function(u) { return parseFloat(u.clearances.toFixed(1)); });
+
+      if (state.surgeChart) {
+        state.surgeChart.data.labels = labels;
+        state.surgeChart.data.datasets[0].data = inflowData;
+        state.surgeChart.data.datasets[1].data = clearanceData;
+        state.surgeChart.update('none'); // Ultra-fast zero animation update for snappy slider responsiveness
+        return;
+      }
+
+      var ctx = document.getElementById('surgeChart').getContext('2d');
+      state.surgeChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Projected Inflow',
+              data: inflowData,
+              backgroundColor: '#1E3A8A',
+              borderColor: '#1E3A8A',
+              borderRadius: 2,
+              barPercentage: 0.75,
+              categoryPercentage: 0.85
+            },
+            {
+              label: 'Expected Discharges',
+              data: clearanceData,
+              backgroundColor: '#0D9488',
+              borderColor: '#0D9488',
+              borderRadius: 2,
+              barPercentage: 0.75,
+              categoryPercentage: 0.85
+            }
+          ]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: false, // Prevents lag when dragging sliders
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0F172A',
+              titleFont: { family: 'Inter', size: 11, weight: '600' },
+              bodyFont: { family: 'JetBrains Mono', size: 11 },
+              padding: 8,
+              cornerRadius: 4,
+              callbacks: {
+                afterBody: function(items) {
+                  var idx = items[0].dataIndex;
+                  var u = top10[idx];
+                  return [
+                    'Net Deficit: ' + (u.deficit >= 0 ? '+' : '') + u.deficit.toFixed(2) + ' beds',
+                    'Occupancy:   ' + u.occupancy.toFixed(1) + '%',
+                    'Risk Tier:   ' + u.tier
+                  ];
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: '#E2E8F0', drawTicks: false },
+              ticks: { color: '#64748B', font: { family: 'JetBrains Mono', size: 10 } },
+              border: { dash: [3, 3] }
+            },
+            y: {
+              grid: { display: false },
+              ticks: { color: '#334155', font: { family: 'Inter', size: 11, weight: '500' } }
+            }
+          }
+        }
+      });
+    }
+
+    function updateChart() {
+      initOrUpdateChart();
+    }
+
+    // ── Table Rendering & Filtering ──────────────────────────────────────────
+    function setTab(tab) {
+      state.currentTab = tab;
+      
+      var tabs = ['ALL', 'CRITICAL', 'ICU'];
+      var tabMap = { 'ALL': 'tab-all', 'CRITICAL': 'tab-crit', 'ICU': 'tab-icu' };
+
+      tabs.forEach(function(t) {
+        var el = document.getElementById(tabMap[t]);
+        if (t === tab) {
+          el.className = "px-3 py-1 rounded text-slate-900 bg-slate-100 font-semibold transition";
+        } else {
+          el.className = "px-3 py-1 rounded text-slate-600 hover:text-slate-900 transition";
+        }
+      });
+
+      renderTable();
+    }
+
+    function onSearchChange() {
+      state.searchQuery = (document.getElementById('input-search').value || '').trim().toLowerCase();
+      renderTable();
+    }
+
+    function renderTable() {
+      var tbody = document.getElementById('table-body');
+      var filtered = state.simulated.filter(function(u) {
+        if (state.currentTab === 'CRITICAL' && u.tier !== 'CRITICAL') return false;
+        if (state.currentTab === 'ICU' && !u.isICU) return false;
+        if (state.searchQuery && u.care_unit.toLowerCase().indexOf(state.searchQuery) === -1) return false;
+        return true;
+      });
+
+      tbody.innerHTML = '';
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-slate-400 font-medium">No matching care units found</td></tr>';
+        document.getElementById('lbl-table-count').textContent = 'Showing 0 of ' + state.simulated.length + ' units';
+        return;
+      }
+
+      var html = '';
+      for (var i = 0; i < filtered.length; i++) {
+        var u = filtered[i];
+        
+        // Deficit styling
+        var deficitClass = u.deficit > 0 ? "font-bold text-rose-800" : "font-medium text-emerald-800";
+        var deficitStr = (u.deficit >= 0 ? '+' : '') + u.deficit.toFixed(1);
+
+        // Occupancy micro-bar color
+        var barColor = u.occupancy >= 90.0 ? "bg-rose-600" : u.occupancy >= 75.0 ? "bg-amber-500" : "bg-emerald-600";
+        var barWidth = Math.min(Math.round(u.occupancy), 100);
+
+        // Risk badge
+        var badgeClass = u.tier === 'CRITICAL' ? "badge-critical" : u.tier === 'STRAINED' ? "badge-strained" : "badge-stable";
+
+        html += '<tr class="hover:bg-slate-50 transition border-b border-slate-100">' +
+          '<td class="py-2.5 px-3.5 font-semibold text-slate-800 whitespace-nowrap">' + u.care_unit + '</td>' +
+          '<td class="py-2.5 px-2.5 font-mono text-right text-slate-700">' + u.active_patients + '</td>' +
+          '<td class="py-2.5 px-2.5 font-mono text-right text-slate-600">' + u.mean_los_hours.toFixed(1) + 'h</td>' +
+          '<td class="py-2.5 px-2.5 font-mono text-right text-[#1E3A8A] font-semibold">' + u.inflow.toFixed(1) + '</td>' +
+          '<td class="py-2.5 px-2.5 font-mono text-right text-[#0D9488] font-semibold">' + u.clearances.toFixed(1) + '</td>' +
+          '<td class="py-2.5 px-2.5 font-mono text-right ' + deficitClass + '">' + deficitStr + '</td>' +
+          '<td class="py-2.5 px-3 text-right">' +
+            '<div class="flex items-center justify-end gap-2">' +
+              '<div class="w-10 bg-slate-200 h-1.5 rounded-full overflow-hidden shrink-0">' +
+                '<div class="' + barColor + ' h-full rounded-full" style="width: ' + barWidth + '%"></div>' +
+              '</div>' +
+              '<span class="font-mono text-slate-800 font-semibold w-12 text-right">' + u.occupancy.toFixed(1) + '%</span>' +
+            '</div>' +
+          '</td>' +
+          '<td class="py-2.5 px-3 text-center">' +
+            '<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ' + badgeClass + '">' +
+              u.tier +
+            '</span>' +
+          '</td>' +
+        '</tr>';
+      }
+
+      tbody.innerHTML = html;
+      document.getElementById('lbl-table-count').textContent = 'Showing ' + filtered.length + ' of ' + state.simulated.length + ' units';
+    }
+
+    // ── Input change listener ────────────────────────────────────────────────
+    function onParamChange() {
+      runSimulation();
+    }
+
+    // ── CSV Audit Export ────────────────────────────────────────────────────
+    function exportCSV() {
+      var S = parseFloat(document.getElementById('slider-surge').value);
+      var lead = parseInt(document.getElementById('slider-lead').value, 10);
+      var bufMins = parseFloat(document.getElementById('slider-buf').value);
+
+      var headers = [
+        "care_unit",
+        "active_census",
+        "mean_los_hours",
+        "licensed_capacity",
+        "surge_multiplier",
+        "lead_window_hours",
+        "early_discharge_buffer_mins",
+        "projected_inflow",
+        "expected_clearances",
+        "net_deficit",
+        "projected_occupancy_pct",
+        "risk_tier",
+        "is_icu"
+      ];
+
+      var csvRows = [headers.join(",")];
+
+      for (var i = 0; i < state.simulated.length; i++) {
+        var u = state.simulated[i];
+        csvRows.push([
+          '"' + u.care_unit.replace(/"/g, '""') + '"',
+          u.active_patients,
+          u.mean_los_hours.toFixed(2),
+          u.licensed_capacity,
+          S.toFixed(2),
+          lead,
+          bufMins,
+          u.inflow.toFixed(2),
+          u.clearances.toFixed(2),
+          u.deficit.toFixed(2),
+          u.occupancy.toFixed(2),
+          u.tier,
+          u.isICU
+        ].join(","));
+      }
+
+      var blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", "clinical_capacity_audit_S" + S.toFixed(2) + "_W" + lead + "h_" + new Date().toISOString().slice(0, 10) + ".csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    // ── Data Initialization (Dynamic Fetch with Fallback) ───────────────────
+    async function init() {
+      try {
+        var response = await fetch('./public/simulation_baseline.json');
+        if (response.ok) {
+          var payload = await response.json();
+          if (payload && Array.isArray(payload.units) && payload.units.length > 0) {
+            state.rawUnits = payload.units;
+          }
+        }
+      } catch (err) {
+        console.warn("Using baseline seed data fallback:", err);
+      }
+
+      runSimulation();
+    }
+
+    // Launch engine on DOM readiness
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
 </body>
 </html>
