@@ -86,6 +86,22 @@ def get_execution_engine() -> Tuple[str, Any]:
         return "pandas", None
 
 
+def compute_duration_hours(start: Any, end: Any, default: float = 0.0) -> pd.Series:
+    """Compute duration in hours between two timestamp series safely and accurately.
+
+    Args:
+        start: Start timestamp Series or sequence.
+        end: End timestamp Series or sequence.
+        default: Fallback numeric value for null/NaT differences.
+
+    Returns:
+        pd.Series containing elapsed hours rounded to 4 decimal places.
+    """
+    start_dt = pd.to_datetime(start, utc=True, errors="coerce")
+    end_dt = pd.to_datetime(end, utc=True, errors="coerce")
+    diff = end_dt - start_dt
+    return diff.apply(lambda x: round(x.total_seconds() / 3600.0, 4) if pd.notna(x) else default)
+
 
 def clean_admissions(admissions: pd.DataFrame) -> pd.DataFrame:
     """Clean, standardize, and govern raw MIMIC-IV admissions table.
