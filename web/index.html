@@ -1,93 +1,108 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-slate-100">
+<html lang="en" class="h-full bg-[#0B0F17]">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clinical Flow Capacity Governor | Hospital Command Center</title>
-  <meta name="description" content="Longitudinal Bed Turnover Engine & Discrete-Event Inpatient Surge Telemetry" />
+  <title>Clinical Flow Capacity Governor | Executive Command Center</title>
+  <meta name="description" content="Discrete-Event Surge Telemetry & Bed Turnover Optimization Platform" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; }
-    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #F1F5F9; color: #0F172A; }
+    body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #0B0F17; color: #F8FAFC; }
     .font-mono { font-family: 'JetBrains Mono', monospace; font-feature-settings: "tnum" 1, "zero" 1; }
-    
-    /* Native Range Inputs with accent-slate-800 */
+
+    /* Custom Sleek Sliders */
     input[type=range] {
       -webkit-appearance: none; appearance: none;
-      width: 100%; height: 5px;
-      background: #E2E8F0; border-radius: 9999px;
-      outline: none; cursor: pointer; accent-color: #0F172A;
+      width: 100%; height: 6px;
+      background: #1E293B; border-radius: 9999px;
+      outline: none; cursor: pointer; accent-color: #0EA5E9;
     }
     input[type=range]::-webkit-slider-thumb {
       -webkit-appearance: none; appearance: none;
       width: 16px; height: 16px; border-radius: 50%;
-      background: #0F172A; border: 2px solid #FFFFFF;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
-      cursor: pointer; transition: transform 0.1s ease;
+      background: #38BDF8; border: 2px solid #0B0F17;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+      cursor: pointer; transition: transform 0.1s ease, box-shadow 0.15s ease;
     }
-    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.7);
+    }
     input[type=range]::-moz-range-thumb {
       width: 16px; height: 16px; border-radius: 50%;
-      background: #0F172A; border: 2px solid #FFFFFF;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      background: #38BDF8; border: 2px solid #0B0F17;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
       cursor: pointer;
     }
 
-    /* Table styles */
-    .table-container::-webkit-scrollbar { width: 6px; height: 6px; }
-    .table-container::-webkit-scrollbar-track { background: #F8FAFC; }
-    .table-container::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
-    .table-container::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+    /* Charcoal Scrollbars */
+    .charcoal-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .charcoal-scroll::-webkit-scrollbar-track { background: #0F172A; }
+    .charcoal-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    .charcoal-scroll::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-    /* Operational Status Pills */
-    .badge-critical { background-color: #FFF1F2; color: #9F1239; border: 1px solid #FECDD3; }
-    .badge-strained { background-color: #FFFBEB; color: #92400E; border: 1px solid #FDE68A; }
-    .badge-stable   { background-color: #F0FDF4; color: #166534; border: 1px solid #BBF7D0; }
+    /* High-contrast status badges */
+    .badge-critical {
+      color: #FB7185;
+      background-color: rgba(76, 5, 25, 0.5);
+      border: 1px solid rgba(159, 18, 57, 0.6);
+    }
+    .badge-strained {
+      color: #FCD34D;
+      background-color: rgba(69, 26, 3, 0.4);
+      border: 1px solid rgba(180, 83, 9, 0.5);
+    }
+    .badge-stable {
+      color: #4ADE80;
+      background-color: rgba(2, 44, 34, 0.4);
+      border: 1px solid rgba(21, 128, 61, 0.5);
+    }
 
-    /* Subtle Heartbeat Pulse */
-    @keyframes subtle-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.95); } }
-    .pulse-indicator { animation: subtle-pulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    /* Status Indicator Pulse */
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.9); } }
+    .pulse-dot { animation: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
   </style>
 </head>
-<body class="min-h-screen flex flex-col text-slate-900 bg-slate-100 antialiased">
+<body class="min-h-screen flex flex-col bg-[#0B0F17] text-slate-100 antialiased selection:bg-sky-900 selection:text-sky-200">
 
   <!-- ════════════════════ 1. EXECUTIVE HEADER ════════════════════ -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3">
+  <header class="bg-[#0D131F]/90 backdrop-blur-md border-b border-slate-800 sticky top-0 z-30 shadow-md shadow-black/40">
+    <div class="max-w-[1500px] mx-auto px-4 sm:px-6 py-2.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
       
-      <!-- Left: Branding & Subtitle -->
-      <div class="flex items-start gap-3.5">
-        <div class="w-10 h-10 rounded bg-slate-900 flex items-center justify-center text-white shrink-0 mt-0.5 shadow-sm">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <!-- Left: Institutional Branding -->
+      <div class="flex items-center gap-3.5">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-700/80 flex items-center justify-center text-sky-400 shrink-0 shadow-inner">
+          <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m1-3l1 3m5-3l-1 3m1-3l1 3M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.75m10.5 3.75v-3.75" />
           </svg>
         </div>
         <div>
           <div class="flex items-center gap-2 flex-wrap">
-            <h1 class="text-base font-bold text-slate-900 tracking-tight leading-none">
+            <h1 class="text-sm sm:text-base font-bold text-slate-100 tracking-tight leading-none">
               Clinical Flow Capacity Governor
             </h1>
-            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider bg-slate-100 text-slate-700 border border-slate-300 uppercase">
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold tracking-wider bg-slate-800/90 text-sky-400 border border-slate-700/70 font-mono uppercase">
               MIMIC-IV LIVE REPLAY
             </span>
           </div>
-          <p class="text-xs text-slate-500 mt-1 leading-normal">
+          <p class="text-[11px] text-slate-400 mt-1 leading-none">
             Longitudinal Bed Turnover Engine &amp; Discrete-Event Inpatient Surge Telemetry
           </p>
         </div>
       </div>
 
-      <!-- Right: Telemetry Status & Export Button -->
+      <!-- Right: Telemetry Feeds & Export -->
       <div class="flex items-center gap-3 sm:gap-4 self-end md:self-auto">
-        <div class="flex items-center gap-2 px-2.5 py-1.5 rounded bg-slate-50 border border-slate-200">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 pulse-indicator"></span>
-          <span class="text-xs font-medium text-slate-600">Engine Status: <strong class="text-slate-900 font-semibold">Active</strong> (Snappy Parquet Feeds)</span>
+        <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800 text-[11px]">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span>
+          <span class="text-slate-400 font-medium">Engine Status: <strong class="text-slate-200 font-semibold">Active</strong> (Snappy Parquet Feeds)</span>
         </div>
-        <button onclick="exportCSV()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded shadow-sm hover:bg-slate-50 active:bg-slate-100 transition">
-          <svg class="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <button onclick="exportCSV()" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-200 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 border border-slate-700 rounded-lg shadow-sm transition">
+          <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
           </svg>
           Export CSV Audit
@@ -97,62 +112,62 @@
     </div>
   </header>
 
-  <!-- ════════════════════ WORKSPACE BODY ════════════════════ -->
-  <main class="max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-4 flex-1 flex flex-col gap-4">
+  <!-- ════════════════════ 2. MAIN CONTAINER ════════════════════ -->
+  <main class="max-w-[1500px] w-full mx-auto p-4 space-y-4 flex-1 flex flex-col">
 
-    <!-- ════════════════════ 2. SIMULATION CONTROL STRIP ════════════════════ -->
-    <section class="bg-white rounded-lg border border-slate-200 shadow-sm p-3.5 sm:p-4">
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 mb-3 border-b border-slate-100 gap-1">
-        <span class="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+    <!-- ════════════════════ SIMULATION CONTROL STRIP ════════════════════ -->
+    <section class="bg-[#131B2E] border border-slate-700/60 shadow-lg shadow-black/20 ring-1 ring-white/5 rounded-xl p-3.5 sm:p-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 mb-3 border-b border-slate-800 gap-1">
+        <span class="text-xs font-semibold tracking-wider text-slate-400 uppercase">
           Operational Surge &amp; Turnover Simulation Controls
         </span>
-        <span class="text-[11px] text-slate-400">
+        <span class="text-[11px] text-slate-500 font-mono">
           Calibrated at equilibrium (&lambda;<sub>base</sub> = N<sub>active</sub> / LOS<sub>mean</sub>) &middot; Sub-10ms reactive evaluation
         </span>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
         
-        <!-- Control 1: Surge Multiplier -->
-        <div class="flex flex-col gap-1.5">
+        <!-- Control 1: Emergency Surge Multiplier -->
+        <div class="flex flex-col gap-2">
           <div class="flex items-center justify-between text-xs">
-            <label for="slider-surge" class="font-medium text-slate-700">Emergency Surge Multiplier</label>
-            <span id="val-surge" class="font-mono font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-xs">
+            <label for="slider-surge" class="font-medium text-slate-300">Emergency Surge Multiplier</label>
+            <span id="val-surge" class="bg-sky-950/80 text-sky-400 border border-sky-800/60 font-mono text-xs px-2 py-0.5 rounded font-bold shadow-sm">
               1.25x
             </span>
           </div>
           <input id="slider-surge" type="range" min="1.00" max="2.50" step="0.05" value="1.25" oninput="onParamChange()" />
-          <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+          <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono">
             <span>1.00x Baseline</span>
-            <span>2.50x Catastrophic</span>
+            <span>2.50x Peak Surge</span>
           </div>
         </div>
 
-        <!-- Control 2: Lead Window -->
-        <div class="flex flex-col gap-1.5">
+        <!-- Control 2: Simulation Lead Window -->
+        <div class="flex flex-col gap-2">
           <div class="flex items-center justify-between text-xs">
-            <label for="slider-lead" class="font-medium text-slate-700">Simulation Lead Window</label>
-            <span id="val-lead" class="font-mono font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-xs">
+            <label for="slider-lead" class="font-medium text-slate-300">Simulation Lead Window</label>
+            <span id="val-lead" class="bg-sky-950/80 text-sky-400 border border-sky-800/60 font-mono text-xs px-2 py-0.5 rounded font-bold shadow-sm">
               4h
             </span>
           </div>
           <input id="slider-lead" type="range" min="1" max="8" step="1" value="4" oninput="onParamChange()" />
-          <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+          <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono">
             <span>1h Immediate</span>
             <span>8h Shift Lead</span>
           </div>
         </div>
 
         <!-- Control 3: Early Discharge Acceleration -->
-        <div class="flex flex-col gap-1.5">
+        <div class="flex flex-col gap-2">
           <div class="flex items-center justify-between text-xs">
-            <label for="slider-buf" class="font-medium text-slate-700">Early Discharge Acceleration</label>
-            <span id="val-buf" class="font-mono font-bold text-slate-900 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-xs">
+            <label for="slider-buf" class="font-medium text-slate-300">Early Discharge Acceleration</label>
+            <span id="val-buf" class="bg-sky-950/80 text-sky-400 border border-sky-800/60 font-mono text-xs px-2 py-0.5 rounded font-bold shadow-sm">
               +0m
             </span>
           </div>
           <input id="slider-buf" type="range" min="0" max="120" step="15" value="0" oninput="onParamChange()" />
-          <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+          <div class="flex items-center justify-between text-[11px] text-slate-500 font-mono">
             <span>0 min Standard</span>
             <span>120 min Expedited</span>
           </div>
@@ -161,116 +176,116 @@
       </div>
     </section>
 
-    <!-- ════════════════════ 3. EXECUTIVE KPI RIBBON ════════════════════ -->
+    <!-- ════════════════════ EXECUTIVE KPI RIBBON ════════════════════ -->
     <section class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
       
       <!-- Metric 1: Total Census -->
-      <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-3.5 sm:p-4 flex flex-col justify-between">
-        <span class="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+      <div class="bg-[#131B2E] border border-slate-700/60 shadow-lg shadow-black/20 ring-1 ring-white/5 rounded-xl p-4 flex flex-col justify-between">
+        <span class="text-xs font-semibold tracking-wider text-slate-400 uppercase">
           Total Inpatient Census
         </span>
-        <div class="my-1.5">
-          <span id="kpi-census" class="font-mono text-2xl sm:text-3xl font-bold text-slate-900">880 Beds</span>
+        <div class="my-2">
+          <span id="kpi-census" class="font-mono text-2xl sm:text-3xl font-bold text-slate-100">880 Beds</span>
         </div>
-        <p class="text-[11px] text-slate-500">
-          Across <span id="kpi-unit-count" class="font-semibold text-slate-700">30</span> active units
+        <p class="text-[11px] text-slate-400">
+          Across <span id="kpi-unit-count" class="font-semibold text-slate-200">30</span> active units
         </p>
       </div>
 
       <!-- Metric 2: Net Fleet Deficit -->
-      <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-3.5 sm:p-4 flex flex-col justify-between">
-        <span class="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+      <div class="bg-[#131B2E] border border-slate-700/60 shadow-lg shadow-black/20 ring-1 ring-white/5 rounded-xl p-4 flex flex-col justify-between">
+        <span class="text-xs font-semibold tracking-wider text-slate-400 uppercase">
           Net Fleet Deficit (t+<span id="kpi-lead-win">4</span>h)
         </span>
-        <div class="my-1.5">
-          <span id="kpi-deficit" class="font-mono text-2xl sm:text-3xl font-bold text-rose-800">+38.4 Beds</span>
+        <div class="my-2">
+          <span id="kpi-deficit" class="font-mono text-2xl sm:text-3xl font-bold text-rose-400">+38.4 Beds</span>
         </div>
-        <p class="text-[11px] text-slate-500">
-          <span id="kpi-deficit-sub" class="font-semibold text-rose-700">Projected bed shortfall</span> over window
+        <p class="text-[11px] text-slate-400">
+          <span id="kpi-deficit-sub" class="font-semibold text-rose-400">Projected bed shortfall</span> over window
         </p>
       </div>
 
       <!-- Metric 3: Units Exceeding Capacity -->
-      <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-3.5 sm:p-4 flex flex-col justify-between">
-        <span class="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+      <div class="bg-[#131B2E] border border-slate-700/60 shadow-lg shadow-black/20 ring-1 ring-white/5 rounded-xl p-4 flex flex-col justify-between">
+        <span class="text-xs font-semibold tracking-wider text-slate-400 uppercase">
           Units Exceeding Capacity
         </span>
-        <div class="my-1.5">
-          <span id="kpi-bottlenecks" class="font-mono text-2xl sm:text-3xl font-bold text-amber-800">4 Wards</span>
+        <div class="my-2">
+          <span id="kpi-bottlenecks" class="font-mono text-2xl sm:text-3xl font-bold text-amber-300">4 Wards</span>
         </div>
-        <p class="text-[11px] text-slate-500">
+        <p class="text-[11px] text-slate-400">
           Projected occupancy &ge; 90% or deficit &gt; 3
         </p>
       </div>
 
       <!-- Metric 4: System Occupancy -->
-      <div class="bg-white rounded-lg border border-slate-200 shadow-sm p-3.5 sm:p-4 flex flex-col justify-between">
-        <span class="text-xs font-semibold tracking-wider text-slate-500 uppercase">
+      <div class="bg-[#131B2E] border border-slate-700/60 shadow-lg shadow-black/20 ring-1 ring-white/5 rounded-xl p-4 flex flex-col justify-between">
+        <span class="text-xs font-semibold tracking-wider text-slate-400 uppercase">
           System-Wide Occupancy
         </span>
-        <div class="my-1.5">
-          <span id="kpi-occupancy" class="font-mono text-2xl sm:text-3xl font-bold text-slate-900">94.2%</span>
+        <div class="my-2">
+          <span id="kpi-occupancy" class="font-mono text-2xl sm:text-3xl font-bold text-slate-100">94.2%</span>
         </div>
-        <p class="text-[11px] text-slate-500">
-          <span id="kpi-surge-stress" class="font-semibold text-slate-700">1.25x</span> baseline arrival stress
+        <p class="text-[11px] text-slate-400">
+          <span id="kpi-surge-stress" class="font-semibold text-sky-400">1.25x</span> baseline arrival stress
         </p>
       </div>
 
     </section>
 
-    <!-- ════════════════════ 4. PRIMARY ANALYTICS VIEW (2-COLUMN GRID) ════════════════════ -->
+    <!-- ════════════════════ PRIMARY ANALYTICS VIEW ════════════════════ -->
     <section class="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1">
       
       <!-- Left Column (40% width): Clustered Horizontal Bar Chart -->
-      <div class="lg:col-span-5 bg-white rounded-lg border border-slate-200 shadow-sm p-4 flex flex-col">
+      <div class="lg:col-span-5 bg-[#131B2E] border border-slate-700/60 shadow-lg shadow-black/20 ring-1 ring-white/5 rounded-xl p-4 flex flex-col">
         
-        <div class="flex items-start justify-between pb-2.5 mb-2 border-b border-slate-100">
+        <div class="flex items-start justify-between pb-2 mb-2 border-b border-slate-800">
           <div>
-            <h2 class="text-sm font-bold text-slate-900">Projected Inflow vs Clearance Deficit</h2>
-            <p class="text-xs text-slate-500 mt-0.5">Top 10 constrained care units sorted by net deficit descending</p>
+            <h2 class="text-sm font-bold text-slate-100">Projected Inflow vs Clearance Deficit</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Top 10 constrained care units sorted by net deficit descending</p>
           </div>
         </div>
 
         <!-- Legend Bar -->
-        <div class="flex items-center gap-4 text-xs font-medium text-slate-600 mb-2">
+        <div class="flex items-center gap-4 text-xs font-medium text-slate-400 mb-2">
           <div class="flex items-center gap-1.5">
-            <span class="w-3 h-3 rounded-sm bg-[#1E3A8A]"></span>
+            <span class="w-3 h-3 rounded-sm bg-[#3B82F6]"></span>
             <span>Projected Inflow</span>
           </div>
           <div class="flex items-center gap-1.5">
-            <span class="w-3 h-3 rounded-sm bg-[#0D9488]"></span>
+            <span class="w-3 h-3 rounded-sm bg-[#14B8A6]"></span>
             <span>Expected Discharges</span>
           </div>
         </div>
 
-        <!-- Canvas container with responsive height -->
+        <!-- Chart Canvas Container -->
         <div class="relative flex-1 min-h-[420px] w-full">
           <canvas id="surgeChart"></canvas>
         </div>
 
-        <div class="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400 font-mono">
-          <span>&Sigma; Inflow: <strong id="lbl-total-inflow" class="text-slate-700">0.0</strong></span>
-          <span>&Sigma; Discharges: <strong id="lbl-total-clear" class="text-slate-700">0.0</strong></span>
-          <span>Net: <strong id="lbl-total-def" class="text-rose-700">+0.0</strong></span>
+        <div class="pt-2 mt-2 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+          <span>&Sigma; Inflow: <strong id="lbl-total-inflow" class="text-slate-200">0.0</strong></span>
+          <span>&Sigma; Discharges: <strong id="lbl-total-clear" class="text-slate-200">0.0</strong></span>
+          <span>Net: <strong id="lbl-total-def" class="text-rose-400">+0.0</strong></span>
         </div>
 
       </div>
 
       <!-- Right Column (60% width): Executive Care Unit Intelligence Table -->
-      <div class="lg:col-span-7 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+      <div class="lg:col-span-7 bg-[#131B2E] border border-slate-700/60 shadow-lg shadow-black/20 ring-1 ring-white/5 rounded-xl flex flex-col overflow-hidden">
         
         <!-- Table Toolbar: Quick Tabs & Search -->
-        <div class="px-4 py-3 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div class="px-4 py-3 bg-slate-900/70 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           
           <!-- Filter Tabs -->
-          <div class="inline-flex rounded-md border border-slate-300 bg-white p-0.5 text-xs font-medium shadow-xs">
-            <button id="tab-all" onclick="setTab('ALL')" class="px-3 py-1 rounded text-slate-900 bg-slate-100 font-semibold transition">
+          <div class="inline-flex rounded-lg border border-slate-700/80 bg-slate-950/80 p-0.5 text-xs font-medium">
+            <button id="tab-all" onclick="setTab('ALL')" class="px-3 py-1 rounded-md text-sky-400 bg-slate-800/90 font-semibold transition">
               All Units
             </button>
-            <button id="tab-crit" onclick="setTab('CRITICAL')" class="px-3 py-1 rounded text-slate-600 hover:text-slate-900 transition">
+            <button id="tab-crit" onclick="setTab('CRITICAL')" class="px-3 py-1 rounded-md text-slate-400 hover:text-slate-200 transition">
               Critical Only
             </button>
-            <button id="tab-icu" onclick="setTab('ICU')" class="px-3 py-1 rounded text-slate-600 hover:text-slate-900 transition">
+            <button id="tab-icu" onclick="setTab('ICU')" class="px-3 py-1 rounded-md text-slate-400 hover:text-slate-200 transition">
               ICU Wards
             </button>
           </div>
@@ -278,7 +293,7 @@
           <!-- Search Bar -->
           <div class="relative w-full sm:w-56">
             <input id="input-search" type="text" placeholder="Filter department..." oninput="onSearchChange()"
-              class="w-full text-xs pl-8 pr-3 py-1.5 rounded border border-slate-300 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500" />
+              class="w-full text-xs pl-8 pr-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900/90 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500" />
             <svg class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
             </svg>
@@ -286,31 +301,31 @@
 
         </div>
 
-        <!-- Scrollable Table -->
-        <div class="table-container flex-1 overflow-x-auto overflow-y-auto max-h-[500px]">
+        <!-- Scrollable Table Container -->
+        <div class="charcoal-scroll flex-1 overflow-x-auto overflow-y-auto max-h-[480px]">
           <table class="w-full text-left border-collapse">
-            <thead class="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
+            <thead class="bg-slate-900/95 sticky top-0 z-10 border-b border-slate-800 text-slate-400 text-[11px]">
               <tr>
-                <th class="py-2.5 px-3.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Care Unit</th>
-                <th class="py-2.5 px-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right">Active Census</th>
-                <th class="py-2.5 px-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right">Mean LOS</th>
-                <th class="py-2.5 px-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right">Projected Inflow</th>
-                <th class="py-2.5 px-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right">Clearances</th>
-                <th class="py-2.5 px-2.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right">Net Deficit</th>
-                <th class="py-2.5 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-right min-w-[130px]">Projected Occupancy</th>
-                <th class="py-2.5 px-3 text-[11px] font-semibold text-slate-500 uppercase tracking-wider text-center">Risk Tier</th>
+                <th class="py-2.5 px-3.5 font-semibold uppercase tracking-wider min-w-[200px] whitespace-nowrap">Care Unit</th>
+                <th class="py-2.5 px-2.5 font-semibold uppercase tracking-wider text-right whitespace-nowrap">Active Census</th>
+                <th class="py-2.5 px-2.5 font-semibold uppercase tracking-wider text-right whitespace-nowrap">Mean LOS</th>
+                <th class="py-2.5 px-2.5 font-semibold uppercase tracking-wider text-right whitespace-nowrap">Projected Inflow</th>
+                <th class="py-2.5 px-2.5 font-semibold uppercase tracking-wider text-right whitespace-nowrap">Clearances</th>
+                <th class="py-2.5 px-2.5 font-semibold uppercase tracking-wider text-right whitespace-nowrap">Net Deficit</th>
+                <th class="py-2.5 px-3 font-semibold uppercase tracking-wider text-right min-w-[130px] whitespace-nowrap">Projected Occupancy</th>
+                <th class="py-2.5 px-3 font-semibold uppercase tracking-wider text-center whitespace-nowrap">Risk Tier</th>
               </tr>
             </thead>
-            <tbody id="table-body" class="divide-y divide-slate-100 text-xs">
+            <tbody id="table-body" class="divide-y divide-slate-800/60 text-xs">
               <!-- Dynamically populated rows -->
             </tbody>
           </table>
         </div>
 
         <!-- Table Summary Footer -->
-        <div class="px-4 py-2 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-[11px] text-slate-500 font-mono">
+        <div class="px-4 py-2 bg-slate-900/70 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400 font-mono">
           <span id="lbl-table-count">Showing 30 of 30 units</span>
-          <span>Occupancy = (Census + Deficit) / Capacity &middot; Monospace Tabular Nums</span>
+          <span>Occupancy = (Census + Deficit) / Capacity &middot; Monospace Tabular</span>
         </div>
 
       </div>
@@ -463,12 +478,12 @@
       var formattedDeficit = (totalDeficit >= 0 ? '+' : '') + totalDeficit.toFixed(1) + ' Beds';
       deficitEl.textContent = formattedDeficit;
       if (totalDeficit > 0) {
-        deficitEl.className = "font-mono text-2xl sm:text-3xl font-bold text-rose-800";
-        deficitSubEl.className = "font-semibold text-rose-700";
+        deficitEl.className = "font-mono text-2xl sm:text-3xl font-bold text-rose-400";
+        deficitSubEl.className = "font-semibold text-rose-400";
         deficitSubEl.textContent = "Projected bed shortfall";
       } else {
-        deficitEl.className = "font-mono text-2xl sm:text-3xl font-bold text-emerald-800";
-        deficitSubEl.className = "font-semibold text-emerald-700";
+        deficitEl.className = "font-mono text-2xl sm:text-3xl font-bold text-emerald-400";
+        deficitSubEl.className = "font-semibold text-emerald-400";
         deficitSubEl.textContent = "Sufficient buffer headroom";
       }
 
@@ -479,14 +494,14 @@
       document.getElementById('lbl-total-clear').textContent = totalClearances.toFixed(1);
       var totalDefEl = document.getElementById('lbl-total-def');
       totalDefEl.textContent = (totalDeficit >= 0 ? '+' : '') + totalDeficit.toFixed(1);
-      totalDefEl.className = totalDeficit > 0 ? "text-rose-700 font-bold" : "text-emerald-700 font-bold";
+      totalDefEl.className = totalDeficit > 0 ? "text-rose-400 font-bold" : "text-emerald-400 font-bold";
     }
 
     // ── Clustered Horizontal Bar Chart (Chart.js) ───────────────────────────
     function initOrUpdateChart() {
       var top10 = state.simulated.slice(0, 10);
       var labels = top10.map(function(u) {
-        return u.care_unit.length > 22 ? u.care_unit.slice(0, 20) + '…' : u.care_unit;
+        return u.care_unit.length > 20 ? u.care_unit.slice(0, 18) + '…' : u.care_unit;
       });
       var inflowData = top10.map(function(u) { return parseFloat(u.inflow.toFixed(1)); });
       var clearanceData = top10.map(function(u) { return parseFloat(u.clearances.toFixed(1)); });
@@ -495,7 +510,7 @@
         state.surgeChart.data.labels = labels;
         state.surgeChart.data.datasets[0].data = inflowData;
         state.surgeChart.data.datasets[1].data = clearanceData;
-        state.surgeChart.update('none'); // Ultra-fast zero animation update for snappy slider responsiveness
+        state.surgeChart.update('none'); // Instant responsive slider feedback
         return;
       }
 
@@ -508,18 +523,18 @@
             {
               label: 'Projected Inflow',
               data: inflowData,
-              backgroundColor: '#1E3A8A',
-              borderColor: '#1E3A8A',
-              borderRadius: 2,
+              backgroundColor: '#3B82F6',
+              borderColor: '#3B82F6',
+              borderRadius: 3,
               barPercentage: 0.75,
               categoryPercentage: 0.85
             },
             {
               label: 'Expected Discharges',
               data: clearanceData,
-              backgroundColor: '#0D9488',
-              borderColor: '#0D9488',
-              borderRadius: 2,
+              backgroundColor: '#14B8A6',
+              borderColor: '#14B8A6',
+              borderRadius: 3,
               barPercentage: 0.75,
               categoryPercentage: 0.85
             }
@@ -529,15 +544,19 @@
           indexAxis: 'y',
           responsive: true,
           maintainAspectRatio: false,
-          animation: false, // Prevents lag when dragging sliders
+          animation: false,
           plugins: {
             legend: { display: false },
             tooltip: {
-              backgroundColor: '#0F172A',
+              backgroundColor: '#0B0F17',
+              borderColor: '#334155',
+              borderWidth: 1,
+              titleColor: '#F8FAFC',
               titleFont: { family: 'Inter', size: 11, weight: '600' },
+              bodyColor: '#94A3B8',
               bodyFont: { family: 'JetBrains Mono', size: 11 },
-              padding: 8,
-              cornerRadius: 4,
+              padding: 9,
+              cornerRadius: 6,
               callbacks: {
                 afterBody: function(items) {
                   var idx = items[0].dataIndex;
@@ -553,13 +572,13 @@
           },
           scales: {
             x: {
-              grid: { color: '#E2E8F0', drawTicks: false },
-              ticks: { color: '#64748B', font: { family: 'JetBrains Mono', size: 10 } },
-              border: { dash: [3, 3] }
+              grid: { color: 'rgba(255, 255, 255, 0.06)', drawTicks: false },
+              ticks: { color: '#94A3B8', font: { family: 'JetBrains Mono', size: 10 } },
+              border: { dash: [3, 3], color: '#334155' }
             },
             y: {
               grid: { display: false },
-              ticks: { color: '#334155', font: { family: 'Inter', size: 11, weight: '500' } }
+              ticks: { color: '#CBD5E1', font: { family: 'Inter', size: 11, weight: '500' } }
             }
           }
         }
@@ -580,9 +599,9 @@
       tabs.forEach(function(t) {
         var el = document.getElementById(tabMap[t]);
         if (t === tab) {
-          el.className = "px-3 py-1 rounded text-slate-900 bg-slate-100 font-semibold transition";
+          el.className = "px-3 py-1 rounded-md text-sky-400 bg-slate-800/90 font-semibold transition";
         } else {
-          el.className = "px-3 py-1 rounded text-slate-600 hover:text-slate-900 transition";
+          el.className = "px-3 py-1 rounded-md text-slate-400 hover:text-slate-200 transition";
         }
       });
 
@@ -606,7 +625,7 @@
       tbody.innerHTML = '';
 
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-6 text-slate-400 font-medium">No matching care units found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-8 text-slate-500 font-medium">No matching care units found</td></tr>';
         document.getElementById('lbl-table-count').textContent = 'Showing 0 of ' + state.simulated.length + ' units';
         return;
       }
@@ -616,32 +635,32 @@
         var u = filtered[i];
         
         // Deficit styling
-        var deficitClass = u.deficit > 0 ? "font-bold text-rose-800" : "font-medium text-emerald-800";
+        var deficitClass = u.deficit > 0 ? "font-bold text-rose-400" : "font-medium text-emerald-400";
         var deficitStr = (u.deficit >= 0 ? '+' : '') + u.deficit.toFixed(1);
 
         // Occupancy micro-bar color
-        var barColor = u.occupancy >= 90.0 ? "bg-rose-600" : u.occupancy >= 75.0 ? "bg-amber-500" : "bg-emerald-600";
+        var barColor = u.occupancy >= 90.0 ? "bg-rose-500" : u.occupancy >= 75.0 ? "bg-amber-400" : "bg-emerald-500";
         var barWidth = Math.min(Math.round(u.occupancy), 100);
 
         // Risk badge
         var badgeClass = u.tier === 'CRITICAL' ? "badge-critical" : u.tier === 'STRAINED' ? "badge-strained" : "badge-stable";
 
-        html += '<tr class="hover:bg-slate-50 transition border-b border-slate-100">' +
-          '<td class="py-2.5 px-3.5 font-semibold text-slate-800 whitespace-nowrap">' + u.care_unit + '</td>' +
-          '<td class="py-2.5 px-2.5 font-mono text-right text-slate-700">' + u.active_patients + '</td>' +
-          '<td class="py-2.5 px-2.5 font-mono text-right text-slate-600">' + u.mean_los_hours.toFixed(1) + 'h</td>' +
-          '<td class="py-2.5 px-2.5 font-mono text-right text-[#1E3A8A] font-semibold">' + u.inflow.toFixed(1) + '</td>' +
-          '<td class="py-2.5 px-2.5 font-mono text-right text-[#0D9488] font-semibold">' + u.clearances.toFixed(1) + '</td>' +
-          '<td class="py-2.5 px-2.5 font-mono text-right ' + deficitClass + '">' + deficitStr + '</td>' +
-          '<td class="py-2.5 px-3 text-right">' +
+        html += '<tr class="hover:bg-slate-800/50 transition border-b border-slate-800/60">' +
+          '<td class="py-2.5 px-3.5 font-semibold text-slate-100 min-w-[200px] whitespace-nowrap">' + u.care_unit + '</td>' +
+          '<td class="py-2.5 px-2.5 font-mono text-right text-slate-300 whitespace-nowrap">' + u.active_patients + '</td>' +
+          '<td class="py-2.5 px-2.5 font-mono text-right text-slate-400 whitespace-nowrap">' + u.mean_los_hours.toFixed(1) + 'h</td>' +
+          '<td class="py-2.5 px-2.5 font-mono text-right text-blue-400 font-semibold whitespace-nowrap">' + u.inflow.toFixed(1) + '</td>' +
+          '<td class="py-2.5 px-2.5 font-mono text-right text-teal-400 font-semibold whitespace-nowrap">' + u.clearances.toFixed(1) + '</td>' +
+          '<td class="py-2.5 px-2.5 font-mono text-right ' + deficitClass + ' whitespace-nowrap">' + deficitStr + '</td>' +
+          '<td class="py-2.5 px-3 text-right whitespace-nowrap">' +
             '<div class="flex items-center justify-end gap-2">' +
-              '<div class="w-10 bg-slate-200 h-1.5 rounded-full overflow-hidden shrink-0">' +
+              '<div class="w-10 bg-slate-800 h-1.5 rounded-full overflow-hidden shrink-0 border border-slate-700/60">' +
                 '<div class="' + barColor + ' h-full rounded-full" style="width: ' + barWidth + '%"></div>' +
               '</div>' +
-              '<span class="font-mono text-slate-800 font-semibold w-12 text-right">' + u.occupancy.toFixed(1) + '%</span>' +
+              '<span class="font-mono text-slate-200 font-semibold w-12 text-right">' + u.occupancy.toFixed(1) + '%</span>' +
             '</div>' +
           '</td>' +
-          '<td class="py-2.5 px-3 text-center">' +
+          '<td class="py-2.5 px-3 text-center whitespace-nowrap">' +
             '<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase ' + badgeClass + '">' +
               u.tier +
             '</span>' +
