@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib
+import json
 import logging
 from pathlib import Path
 from typing import Any, Tuple, Union
@@ -448,6 +449,7 @@ def simulate_department_surge_capacity(
     standard_target_occupancy: float = 0.85,
     output_parquet_path: Union[str, Path, None] = None,
     output_csv_path: Union[str, Path, None] = None,
+    output_json_path: Union[str, Path, None] = None,
 ) -> pd.DataFrame:
     """Simulate discrete-event bed capacity, surge inflow, and clearance under surge conditions.
 
@@ -547,6 +549,8 @@ def simulate_department_surge_capacity(
             "care_unit": cu,
             "active_patients": active_pts,
             "baseline_hourly_inflow": round(lambda_base, 4),
+            "mean_los_hours": round(mean_los, 4),
+            "licensed_capacity": int(licensed_capacity),
             "surge_multiplier": surge_multiplier,
             "projected_inflow_4h": projected_inflow_4h,
             "expected_discharges_4h": expected_discharges_4h,
@@ -573,6 +577,32 @@ def simulate_department_surge_capacity(
 
     logger.info("Persisted Feature Parquet dataset: %s (%d care units)", parquet_dest.name, len(res_df))
     logger.info("Exported Power BI Executive Report: %s (%d care units)", csv_dest.name, len(res_df))
+
+    # ── Web Dashboard Baseline JSON Export ──────────────────────────────────
+    if output_json_path is not None:
+        json_dest = Path(output_json_path)
+        json_dest.parent.mkdir(parents=True, exist_ok=True)
+        baseline_payload = {
+            "generated_at": pd.Timestamp.utcnow().isoformat() + "Z",
+            "pipeline_version": "phase_2_surge_simulator",
+            "surge_config": {
+                "default_surge_multiplier": surge_multiplier,
+                "default_lead_hours": bed_turnover_lead_hours,
+                "standard_target_occupancy": standard_target_occupancy,
+            },
+            "units": [
+                {
+                    "care_unit": str(row["care_unit"]),
+                    "active_patients": int(row["active_patients"]),
+                    "baseline_hourly_inflow": float(row["baseline_hourly_inflow"]),
+                    "mean_los_hours": float(row["mean_los_hours"]),
+                    "licensed_capacity": int(row["licensed_capacity"]),
+                }
+                for _, row in res_df.iterrows()
+            ],
+        }
+        json_dest.write_text(json.dumps(baseline_payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        logger.info("Exported Web Dashboard Baseline JSON: %s (%d units)", json_dest.name, len(res_df))
 
     return res_df
 
