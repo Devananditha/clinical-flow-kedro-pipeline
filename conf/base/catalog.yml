@@ -48,14 +48,20 @@ services:
 int_admissions:
   type: pandas.ParquetDataset
   filepath: data/02_intermediate/int_admissions.parquet
+  save_args:
+    compression: snappy
 
 int_transfers:
   type: pandas.ParquetDataset
   filepath: data/02_intermediate/int_transfers.parquet
+  save_args:
+    compression: snappy
 
 int_services:
   type: pandas.ParquetDataset
   filepath: data/02_intermediate/int_services.parquet
+  save_args:
+    compression: snappy
 
 # ------------------------------------------------------------------------------
 # 03_primary: Unified Patient Trajectories and Bed Stay Tracking
@@ -63,6 +69,8 @@ int_services:
 prm_patient_flow:
   type: pandas.ParquetDataset
   filepath: data/03_primary/prm_patient_flow.parquet
+  save_args:
+    compression: snappy
 
 # ------------------------------------------------------------------------------
 # 04_feature: Hospital Surge Capacity & Operational Bed Metrics
@@ -70,3 +78,11 @@ prm_patient_flow:
 feat_bed_surge_metrics:
   type: pandas.ParquetDataset
   filepath: data/04_feature/feat_bed_surge_metrics.parquet
+  save_args:
+    compression: snappy
+
+powerbi_executive_capacity_report:
+  type: pandas.CSVDataset
+  filepath: data/04_feature/powerbi_executive_capacity_report.csv
+  save_args:
+    index: false
