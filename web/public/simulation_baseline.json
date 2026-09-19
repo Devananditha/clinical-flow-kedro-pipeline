@@ -1,37 +1,221 @@
-﻿{
-  "generated_at": "2026-09-19T16:47:17.000Z",
+{
+  "generated_at": "2026-09-19T17:36:19.726196+00:00Z",
   "pipeline_version": "phase_2_surge_simulator",
-  "surge_config": { "default_surge_multiplier": 1.25, "default_lead_hours": 4, "standard_target_occupancy": 0.85 },
+  "surge_config": {
+    "default_surge_multiplier": 1.25,
+    "default_lead_hours": 4,
+    "standard_target_occupancy": 0.85
+  },
   "units": [
-    {"care_unit":"EMERGENCY DEPARTMENT","active_patients":173,"baseline_hourly_inflow":21.254,"mean_los_hours":8.14,"licensed_capacity":204},
-    {"care_unit":"EMERGENCY DEPARTMENT OBSERVATION","active_patients":86,"baseline_hourly_inflow":10.692,"mean_los_hours":8.04,"licensed_capacity":102},
-    {"care_unit":"PACU","active_patients":34,"baseline_hourly_inflow":4.198,"mean_los_hours":8.1,"licensed_capacity":41},
-    {"care_unit":"DISCHARGE LOUNGE","active_patients":32,"baseline_hourly_inflow":3.9,"mean_los_hours":8.21,"licensed_capacity":38},
-    {"care_unit":"MEDICINE","active_patients":62,"baseline_hourly_inflow":0.974,"mean_los_hours":63.68,"licensed_capacity":73},
-    {"care_unit":"CARDIAC VASCULAR INTENSIVE CARE UNIT (CVICU)","active_patients":51,"baseline_hourly_inflow":0.798,"mean_los_hours":63.91,"licensed_capacity":61},
-    {"care_unit":"NEUROLOGY","active_patients":50,"baseline_hourly_inflow":0.774,"mean_los_hours":64.6,"licensed_capacity":59},
-    {"care_unit":"MEDICINE/CARDIOLOGY","active_patients":47,"baseline_hourly_inflow":0.73,"mean_los_hours":64.38,"licensed_capacity":56},
-    {"care_unit":"MED/SURG","active_patients":48,"baseline_hourly_inflow":0.744,"mean_los_hours":64.52,"licensed_capacity":57},
-    {"care_unit":"CARDIAC SURGERY","active_patients":44,"baseline_hourly_inflow":0.69,"mean_los_hours":63.77,"licensed_capacity":52},
-    {"care_unit":"SURGICAL INTENSIVE CARE UNIT (SICU)","active_patients":39,"baseline_hourly_inflow":0.609,"mean_los_hours":64.04,"licensed_capacity":46},
-    {"care_unit":"MEDICAL INTENSIVE CARE UNIT (MICU)","active_patients":28,"baseline_hourly_inflow":0.435,"mean_los_hours":64.37,"licensed_capacity":33},
-    {"care_unit":"TRANSPLANT","active_patients":26,"baseline_hourly_inflow":0.407,"mean_los_hours":63.88,"licensed_capacity":31},
-    {"care_unit":"MEDICAL/SURGICAL ICU (MICU/SICU)","active_patients":24,"baseline_hourly_inflow":0.378,"mean_los_hours":63.49,"licensed_capacity":29},
-    {"care_unit":"MED/SURG/TRAUMA","active_patients":21,"baseline_hourly_inflow":0.334,"mean_los_hours":62.87,"licensed_capacity":25},
-    {"care_unit":"MED/SURG/GYN","active_patients":18,"baseline_hourly_inflow":0.284,"mean_los_hours":63.38,"licensed_capacity":22},
-    {"care_unit":"TRAUMA SICU (TSICU)","active_patients":16,"baseline_hourly_inflow":0.25,"mean_los_hours":64.0,"licensed_capacity":19},
-    {"care_unit":"HEMATOLOGY/ONCOLOGY INTERMEDIATE","active_patients":16,"baseline_hourly_inflow":0.258,"mean_los_hours":62.02,"licensed_capacity":19},
-    {"care_unit":"HEMATOLOGY/ONCOLOGY","active_patients":16,"baseline_hourly_inflow":0.246,"mean_los_hours":65.04,"licensed_capacity":19},
-    {"care_unit":"VASCULAR","active_patients":12,"baseline_hourly_inflow":0.19,"mean_los_hours":63.16,"licensed_capacity":15},
-    {"care_unit":"CORONARY CARE UNIT (CCU)","active_patients":11,"baseline_hourly_inflow":0.167,"mean_los_hours":65.87,"licensed_capacity":13},
-    {"care_unit":"OBSERVATION","active_patients":5,"baseline_hourly_inflow":0.168,"mean_los_hours":29.76,"licensed_capacity":8},
-    {"care_unit":"SURGERY/TRAUMA","active_patients":5,"baseline_hourly_inflow":0.076,"mean_los_hours":65.79,"licensed_capacity":8},
-    {"care_unit":"NEURO INTERMEDIATE","active_patients":3,"baseline_hourly_inflow":0.048,"mean_los_hours":62.5,"licensed_capacity":6},
-    {"care_unit":"CARDIOLOGY","active_patients":3,"baseline_hourly_inflow":0.045,"mean_los_hours":66.67,"licensed_capacity":6},
-    {"care_unit":"NEURO SURGICAL INTENSIVE CARE UNIT (NSICU)","active_patients":3,"baseline_hourly_inflow":0.05,"mean_los_hours":60.0,"licensed_capacity":6},
-    {"care_unit":"NEURO STEPDOWN","active_patients":3,"baseline_hourly_inflow":0.046,"mean_los_hours":65.22,"licensed_capacity":6},
-    {"care_unit":"CARDIOLOGY SURGERY INTERMEDIATE","active_patients":2,"baseline_hourly_inflow":0.026,"mean_los_hours":76.92,"licensed_capacity":5},
-    {"care_unit":"PSYCHIATRY","active_patients":1,"baseline_hourly_inflow":0.016,"mean_los_hours":62.5,"licensed_capacity":4},
-    {"care_unit":"MEDICINE/CARDIOLOGY INTERMEDIATE","active_patients":1,"baseline_hourly_inflow":0.005,"mean_los_hours":200.0,"licensed_capacity":4}
+    {
+      "care_unit": "EMERGENCY DEPARTMENT",
+      "active_patients": 182,
+      "baseline_hourly_inflow": 21.2533,
+      "mean_los_hours": 8.5634,
+      "licensed_capacity": 215
+    },
+    {
+      "care_unit": "EMERGENCY DEPARTMENT OBSERVATION",
+      "active_patients": 26,
+      "baseline_hourly_inflow": 10.6921,
+      "mean_los_hours": 2.4317,
+      "licensed_capacity": 31
+    },
+    {
+      "care_unit": "PACU",
+      "active_patients": 25,
+      "baseline_hourly_inflow": 4.1988,
+      "mean_los_hours": 5.954,
+      "licensed_capacity": 30
+    },
+    {
+      "care_unit": "DISCHARGE LOUNGE",
+      "active_patients": 36,
+      "baseline_hourly_inflow": 3.9008,
+      "mean_los_hours": 9.229,
+      "licensed_capacity": 43
+    },
+    {
+      "care_unit": "MEDICINE",
+      "active_patients": 77,
+      "baseline_hourly_inflow": 0.9739,
+      "mean_los_hours": 79.0657,
+      "licensed_capacity": 91
+    },
+    {
+      "care_unit": "CARDIAC VASCULAR INTENSIVE CARE UNIT (CVICU)",
+      "active_patients": 31,
+      "baseline_hourly_inflow": 0.7988,
+      "mean_los_hours": 38.8074,
+      "licensed_capacity": 37
+    },
+    {
+      "care_unit": "NEUROLOGY",
+      "active_patients": 46,
+      "baseline_hourly_inflow": 0.7732,
+      "mean_los_hours": 59.491,
+      "licensed_capacity": 55
+    },
+    {
+      "care_unit": "MEDICINE/CARDIOLOGY",
+      "active_patients": 43,
+      "baseline_hourly_inflow": 0.7293,
+      "mean_los_hours": 58.9642,
+      "licensed_capacity": 51
+    },
+    {
+      "care_unit": "MED/SURG",
+      "active_patients": 48,
+      "baseline_hourly_inflow": 0.744,
+      "mean_los_hours": 64.5193,
+      "licensed_capacity": 57
+    },
+    {
+      "care_unit": "CARDIAC SURGERY",
+      "active_patients": 39,
+      "baseline_hourly_inflow": 0.6905,
+      "mean_los_hours": 56.4819,
+      "licensed_capacity": 46
+    },
+    {
+      "care_unit": "SURGICAL INTENSIVE CARE UNIT (SICU)",
+      "active_patients": 33,
+      "baseline_hourly_inflow": 0.6075,
+      "mean_los_hours": 54.3199,
+      "licensed_capacity": 39
+    },
+    {
+      "care_unit": "MEDICAL INTENSIVE CARE UNIT (MICU)",
+      "active_patients": 36,
+      "baseline_hourly_inflow": 0.4333,
+      "mean_los_hours": 83.0923,
+      "licensed_capacity": 43
+    },
+    {
+      "care_unit": "TRANSPLANT",
+      "active_patients": 39,
+      "baseline_hourly_inflow": 0.4075,
+      "mean_los_hours": 95.6974,
+      "licensed_capacity": 46
+    },
+    {
+      "care_unit": "MEDICAL/SURGICAL INTENSIVE CARE UNIT (MICU/SICU)",
+      "active_patients": 32,
+      "baseline_hourly_inflow": 0.3778,
+      "mean_los_hours": 84.6902,
+      "licensed_capacity": 38
+    },
+    {
+      "care_unit": "MED/SURG/TRAUMA",
+      "active_patients": 25,
+      "baseline_hourly_inflow": 0.335,
+      "mean_los_hours": 74.6347,
+      "licensed_capacity": 30
+    },
+    {
+      "care_unit": "MED/SURG/GYN",
+      "active_patients": 13,
+      "baseline_hourly_inflow": 0.2845,
+      "mean_los_hours": 45.6923,
+      "licensed_capacity": 16
+    },
+    {
+      "care_unit": "TRAUMA SICU (TSICU)",
+      "active_patients": 20,
+      "baseline_hourly_inflow": 0.2497,
+      "mean_los_hours": 80.0988,
+      "licensed_capacity": 24
+    },
+    {
+      "care_unit": "HEMATOLOGY/ONCOLOGY INTERMEDIATE",
+      "active_patients": 23,
+      "baseline_hourly_inflow": 0.2583,
+      "mean_los_hours": 89.0282,
+      "licensed_capacity": 28
+    },
+    {
+      "care_unit": "OBSERVATION",
+      "active_patients": 2,
+      "baseline_hourly_inflow": 0.1686,
+      "mean_los_hours": 11.8651,
+      "licensed_capacity": 4
+    },
+    {
+      "care_unit": "HEMATOLOGY/ONCOLOGY",
+      "active_patients": 31,
+      "baseline_hourly_inflow": 0.2452,
+      "mean_los_hours": 126.4486,
+      "licensed_capacity": 37
+    },
+    {
+      "care_unit": "VASCULAR",
+      "active_patients": 20,
+      "baseline_hourly_inflow": 0.1903,
+      "mean_los_hours": 105.0922,
+      "licensed_capacity": 24
+    },
+    {
+      "care_unit": "CORONARY CARE UNIT (CCU)",
+      "active_patients": 16,
+      "baseline_hourly_inflow": 0.1667,
+      "mean_los_hours": 95.999,
+      "licensed_capacity": 19
+    },
+    {
+      "care_unit": "SURGERY/TRAUMA",
+      "active_patients": 3,
+      "baseline_hourly_inflow": 0.0753,
+      "mean_los_hours": 39.815,
+      "licensed_capacity": 5
+    },
+    {
+      "care_unit": "NEURO INTERMEDIATE",
+      "active_patients": 1,
+      "baseline_hourly_inflow": 0.0477,
+      "mean_los_hours": 20.9444,
+      "licensed_capacity": 3
+    },
+    {
+      "care_unit": "CARDIOLOGY",
+      "active_patients": 1,
+      "baseline_hourly_inflow": 0.0438,
+      "mean_los_hours": 22.8281,
+      "licensed_capacity": 3
+    },
+    {
+      "care_unit": "NEURO SURGICAL INTENSIVE CARE UNIT (NEURO SICU)",
+      "active_patients": 4,
+      "baseline_hourly_inflow": 0.0509,
+      "mean_los_hours": 78.6626,
+      "licensed_capacity": 6
+    },
+    {
+      "care_unit": "NEURO STEPDOWN",
+      "active_patients": 3,
+      "baseline_hourly_inflow": 0.0466,
+      "mean_los_hours": 64.3496,
+      "licensed_capacity": 5
+    },
+    {
+      "care_unit": "CARDIOLOGY SURGERY INTERMEDIATE",
+      "active_patients": 1,
+      "baseline_hourly_inflow": 0.026,
+      "mean_los_hours": 38.4233,
+      "licensed_capacity": 3
+    },
+    {
+      "care_unit": "PSYCHIATRY",
+      "active_patients": 3,
+      "baseline_hourly_inflow": 0.0153,
+      "mean_los_hours": 195.8491,
+      "licensed_capacity": 5
+    },
+    {
+      "care_unit": "MEDICINE/CARDIOLOGY INTERMEDIATE",
+      "active_patients": 1,
+      "baseline_hourly_inflow": 0.003,
+      "mean_los_hours": 332.2114,
+      "licensed_capacity": 3
+    }
   ]
 }

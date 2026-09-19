@@ -573,10 +573,24 @@ def simulate_department_surge_capacity(
     csv_dest.parent.mkdir(parents=True, exist_ok=True)
 
     res_df.to_parquet(parquet_dest, compression="snappy", index=False)
-    res_df.to_csv(csv_dest, index=False)
+
+    pbi_cols = [
+        "care_unit",
+        "active_patients",
+        "baseline_hourly_inflow",
+        "surge_multiplier",
+        "projected_inflow_4h",
+        "expected_discharges_4h",
+        "surge_deficit",
+        "projected_occupancy_pct",
+        "operational_risk_tier",
+        "governance_alert_flag",
+    ]
+    pbi_df = res_df[[c for c in pbi_cols if c in res_df.columns]]
+    pbi_df.to_csv(csv_dest, index=False)
 
     logger.info("Persisted Feature Parquet dataset: %s (%d care units)", parquet_dest.name, len(res_df))
-    logger.info("Exported Power BI Executive Report: %s (%d care units)", csv_dest.name, len(res_df))
+    logger.info("Exported Power BI Executive Report: %s (%d care units)", csv_dest.name, len(pbi_df))
 
     # ── Web Dashboard Baseline JSON Export ──────────────────────────────────
     if output_json_path is not None:
