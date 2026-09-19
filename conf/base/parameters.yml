@@ -11,6 +11,9 @@ raw_services_path: "data/01_raw/services.csv"
 surge_multiplier: 1.25
 bed_turnover_lead_hours: 4
 
+# HIPAA Safe Harbor De-identification
+hipaa_salt: "clinical_flow_phi_salt_2026"
+
 # Clinical quality and boundary constraints
 min_los_hours: 0.5
 default_census_interval_hours: 1
