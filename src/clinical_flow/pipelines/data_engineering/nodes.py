@@ -280,56 +280,161 @@ def validate_and_ingest_bronze_to_silver(
     return df_adm, df_trf, df_srv
 
 
-def create_patient_flow(
-    admissions: pd.DataFrame,
-    transfers: pd.DataFrame,
-    services: pd.DataFrame,
+def build_patient_flow_trajectories(
+    int_admissions: pd.DataFrame,
+    int_transfers: pd.DataFrame,
+    int_services: pd.DataFrame,
+    output_path: Union[str, Path, None] = None,
 ) -> pd.DataFrame:
-    """Synthesize longitudinal patient flow trajectory across clinical units (Gold layer).
+    """Synthesize longitudinal patient trajectories and transfer movements across wards.
+
+    Applies window partitioning over hadm_id ordered by intime to derive:
+    - transfer_sequence_id: Order of patient movement through care units (1, 2, 3...)
+    - careunit_los_hours: Elapsed hours in each specific care unit
+    - prev_careunit & transition_lag_hours: Transition time elapsed between ward departure and arrival
+    - is_icu_stay: ICU classification flag (MICU, SICU, CCU, TSICU, CVICU)
+    - emergency_admission: Emergency admission classification indicator
 
     Args:
-        admissions: Cleaned intermediate admissions DataFrame.
-        transfers: Cleaned intermediate transfers DataFrame.
-        services: Cleaned intermediate services DataFrame.
+        int_admissions: Cleaned Silver intermediate admissions DataFrame.
+        int_transfers: Cleaned Silver intermediate transfers DataFrame.
+        int_services: Cleaned Silver intermediate services DataFrame.
+        output_path: Optional target file path for saving Gold Parquet dataset.
 
     Returns:
-        Consolidated primary patient flow DataFrame tracking bed visits and transitions.
+        Unified primary patient trajectory DataFrame.
     """
-    logger.info("Assembling Primary Gold layer: Unified Patient Flow Trajectories")
+    logger.info("==================================================================")
+    logger.info("Executing Node 2: build_patient_flow_trajectories")
+    logger.info("==================================================================")
 
-    # Aggregate transfer metrics per admission
-    transfer_agg = (
-        transfers.groupby("hadm_id")
-        .agg(
-            total_transfers=("transfer_id", "count"),
-            total_icu_stay_hours=("careunit_stay_hours", lambda s: s[transfers.loc[s.index, "is_icu"]].sum()),
-            careunits_visited=("careunit", lambda s: list(pd.unique(s))),
-            had_icu_stay=("is_icu", "any"),
+    engine_type, spark = get_execution_engine()
+
+    if engine_type == "spark" and spark is not None:
+        logger.info("[ENGINE] Executing patient flow trajectory assembly via PySpark engine")
+        pyspark_funcs = importlib.import_module("pyspark.sql.functions")
+        pyspark_window = importlib.import_module("pyspark.sql.window")
+        F = pyspark_funcs
+        Window = getattr(pyspark_window, "Window")
+
+        sdf_trf = spark.createDataFrame(int_transfers)
+        window_spec = Window.partitionBy("hadm_id").orderBy("intime")
+
+        spark_trajectory = (
+            sdf_trf.withColumn("transfer_sequence_id", F.row_number().over(window_spec))
+            .withColumn("prev_careunit", F.lag("curr_careunit", 1).over(window_spec))
+            .withColumn("prev_outtime", F.lag("outtime", 1).over(window_spec))
+            .withColumn(
+                "careunit_los_hours",
+                F.coalesce(
+                    F.round((F.unix_timestamp("outtime") - F.unix_timestamp("intime")) / 3600.0, 4),
+                    F.lit(0.0),
+                ),
+            )
+            .withColumn(
+                "transition_lag_hours",
+                F.coalesce(
+                    F.round((F.unix_timestamp("intime") - F.unix_timestamp("prev_outtime")) / 3600.0, 4),
+                    F.lit(0.0),
+                ),
+            )
+            .withColumn(
+                "is_icu_stay",
+                F.col("curr_careunit").rlike("|".join(ICU_CAREUNIT_TOKENS)),
+            )
         )
-        .reset_index()
+
+        trf_df = spark_trajectory.toPandas()
+    else:
+        logger.info("[ENGINE] Executing patient flow trajectory assembly via vectorized Pandas/PyArrow engine")
+        trf = int_transfers.sort_values(by=["hadm_id", "intime"]).copy()
+
+        # Window sequence numbering: 1, 2, 3... per admission
+        trf["transfer_sequence_id"] = trf.groupby("hadm_id").cumcount() + 1
+
+        # Care unit duration: (outtime - intime) in hours safely calculated
+        intime_dt = pd.to_datetime(trf["intime"], utc=True)
+        outtime_dt = pd.to_datetime(trf["outtime"], utc=True)
+        trf["careunit_los_hours"] = compute_duration_hours(intime_dt, outtime_dt, default=0.0)
+
+        # Ward transition lag: time from departure of prev_careunit to arrival at curr_careunit
+        trf["prev_careunit"] = trf.groupby("hadm_id")["curr_careunit"].shift(1)
+        prev_outtime_dt = pd.to_datetime(trf.groupby("hadm_id")["outtime"].shift(1), utc=True)
+        trf["transition_lag_hours"] = compute_duration_hours(prev_outtime_dt, intime_dt, default=0.0)
+
+        # ICU Classification flag
+        trf["is_icu_stay"] = trf["curr_careunit"].apply(
+            lambda x: any(token in str(x).upper() for token in ICU_CAREUNIT_TOKENS) if pd.notna(x) else False
+        )
+        trf_df = trf
+
+    # --------------------------------------------------------------------------
+    # Assemble Unified Trajectory: Join Transfers + Admissions + Services
+    # --------------------------------------------------------------------------
+    adm_subset = int_admissions[
+        [
+            col
+            for col in [
+                "hadm_id",
+                "admission_type",
+                "los_hours",
+                "admittime",
+                "dischtime",
+                "admission_location",
+                "discharge_location",
+                "hospital_expire_flag",
+                "in_hospital_mortality",
+                "is_emergency",
+            ]
+            if col in int_admissions.columns
+        ]
+    ].drop_duplicates(subset=["hadm_id"])
+
+    trajectory = trf_df.merge(adm_subset, on="hadm_id", how="left")
+
+    # Emergency admission classification
+    trajectory["emergency_admission"] = trajectory["admission_type"].str.contains(
+        "EMERGENCY|URGENT|EMER", case=False, na=False
     )
 
-    # Primary clinical service per admission (first service encountered)
-    sorted_services = services.sort_values("transfertime") if "transfertime" in services.columns else services
+    # Resolve primary admitting service
+    srv_sorted = (
+        int_services.sort_values("transfertime")
+        if "transfertime" in int_services.columns
+        else int_services
+    )
     primary_svc = (
-        sorted_services.groupby("hadm_id")["curr_service"]
+        srv_sorted.groupby("hadm_id")["curr_service"]
         .first()
         .reset_index()
-        .rename(columns={"curr_service": "admitting_service"})
+        .rename(columns={"curr_service": "primary_service"})
     )
+    trajectory = trajectory.merge(primary_svc, on="hadm_id", how="left")
+    trajectory["primary_service"] = trajectory["primary_service"].fillna("UNKNOWN")
+    trajectory["admitting_service"] = trajectory["primary_service"]
 
-    # Primary join: admissions + transfer summary + primary service
-    flow_df = admissions.merge(transfer_agg, on="hadm_id", how="left")
-    flow_df = flow_df.merge(primary_svc, on="hadm_id", how="left")
+    # Calculate whether patient experienced an ICU stay anywhere during admission
+    had_icu_per_hadm = trajectory.groupby("hadm_id")["is_icu_stay"].transform("any")
+    trajectory["had_icu_stay"] = had_icu_per_hadm
 
-    # Fill defaults for patients without recorded transfers
-    flow_df["total_transfers"] = flow_df["total_transfers"].fillna(0).astype(int)
-    flow_df["total_icu_stay_hours"] = flow_df["total_icu_stay_hours"].fillna(0.0)
-    flow_df["had_icu_stay"] = flow_df["had_icu_stay"].fillna(False).astype(bool)
-    flow_df["admitting_service"] = flow_df["admitting_service"].fillna("UNKNOWN")
+    # --------------------------------------------------------------------------
+    # Persistence
+    # --------------------------------------------------------------------------
+    target_file = Path(output_path) if output_path else Path("data/03_primary/prm_patient_flow.parquet")
+    target_file.parent.mkdir(parents=True, exist_ok=True)
+    trajectory.to_parquet(target_file, compression="snappy", index=False)
 
-    logger.info("Produced Primary Patient Flow dataset with %d admissions", len(flow_df))
-    return flow_df
+    logger.info("Persisted Gold Primary dataset (compression=snappy):")
+    logger.info("  File: %s", target_file)
+    logger.info("  Rows: %d trajectory records", len(trajectory))
+    logger.info("  Unique Admissions: %d", trajectory["hadm_id"].nunique())
+    logger.info("  ICU Transfer Rows: %d", trajectory["is_icu_stay"].sum())
+
+    return trajectory
+
+
+create_patient_flow = lambda adm, trf, srv: build_patient_flow_trajectories(adm, trf, srv)
+
 
 
 def compute_bed_surge_metrics(
