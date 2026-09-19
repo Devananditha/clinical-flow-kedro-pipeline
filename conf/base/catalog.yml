@@ -1,0 +1,72 @@
+# ==============================================================================
+# Kedro Data Catalog - Clinical Flow Medallion Architecture
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 01_raw: Raw Ingested MIMIC-IV Demo Clinical Datasets
+# ------------------------------------------------------------------------------
+admissions:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/admissions.csv
+  load_args:
+    dtype:
+      subject_id: int64
+      hadm_id: int64
+      admission_type: string
+      admission_location: string
+      discharge_location: string
+      insurance: string
+      language: string
+      marital_status: string
+      race: string
+      hospital_expire_flag: int64
+
+transfers:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/transfers.csv
+  load_args:
+    dtype:
+      subject_id: int64
+      hadm_id: float64
+      transfer_id: int64
+      eventtype: string
+      careunit: string
+
+services:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/services.csv
+  load_args:
+    dtype:
+      subject_id: int64
+      hadm_id: int64
+      curr_service: string
+      prev_service: string
+
+# ------------------------------------------------------------------------------
+# 02_intermediate: Cleaned & Standardized In-Memory / Parquet Tables
+# ------------------------------------------------------------------------------
+int_admissions:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/int_admissions.parquet
+
+int_transfers:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/int_transfers.parquet
+
+int_services:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/int_services.parquet
+
+# ------------------------------------------------------------------------------
+# 03_primary: Unified Patient Trajectories and Bed Stay Tracking
+# ------------------------------------------------------------------------------
+prm_patient_flow:
+  type: pandas.ParquetDataset
+  filepath: data/03_primary/prm_patient_flow.parquet
+
+# ------------------------------------------------------------------------------
+# 04_feature: Hospital Surge Capacity & Operational Bed Metrics
+# ------------------------------------------------------------------------------
+feat_bed_surge_metrics:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/feat_bed_surge_metrics.parquet

@@ -1,0 +1,18 @@
+# ==============================================================================
+# Pipeline Parameters: Clinical Flow & Hospital Surge Modeling
+# ==============================================================================
+
+# Data ingestion paths and validation thresholds
+raw_admissions_path: "data/01_raw/admissions.csv"
+raw_transfers_path: "data/01_raw/transfers.csv"
+raw_services_path: "data/01_raw/services.csv"
+
+# Surge capacity modeling & bed turnover governance
+surge_multiplier: 1.25
+bed_turnover_lead_hours: 4
+
+# Clinical quality and boundary constraints
+min_los_hours: 0.5
+default_census_interval_hours: 1
+standard_target_occupancy: 0.85
+critical_surge_occupancy: 1.00
